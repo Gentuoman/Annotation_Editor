@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圖像說明框編輯器 ｜ Annotation Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300..700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Palette: museum-document-meets-drafting */
+    --paper: #F2EDE2;
+    --paper-tint: #ECE5D5;
+    --paper-edge: #DFD5BE;
+    --ink: #1B1814;
+    --ink-soft: #3D362B;
+    --ink-mute: #7A6F5C;
+    --rule: #C7B998;
+    --rule-soft: #D9CDB0;
+    --accent-blue: #2A4567;
+    --accent-blue-soft: #4A6A92;
+    --accent-brick: #9A4127;
+    --accent-brick-soft: #B86C52;
+    --hi: #E8C46B;
+    --bg-canvas: #E6DFCD;
+
+    --r-xs: 2px;
+    --r-sm: 4px;
+    --r-md: 6px;
+
+    --shadow-sm: 0 1px 2px rgba(27,24,20,.08);
+    --shadow-md: 0 4px 12px rgba(27,24,20,.10);
+    --shadow-lg: 0 10px 32px rgba(27,24,20,.14);
+
+    --font-display: "Newsreader", "Noto Serif TC", Georgia, serif;
+    --font-ui: "IBM Plex Sans", "Noto Sans TC", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    font-family: var(--font-ui);
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(199,185,152,.18), transparent 40%),
+      radial-gradient(circle at 82% 88%, rgba(154,65,39,.05), transparent 35%);
+  }
+
+  /* ============= Layout ============= */
+  .app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr 320px;
+    grid-template-areas:
+      "topbar topbar"
+      "canvas panel";
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ============= Top bar ============= */
+  .topbar {
+    grid-area: topbar;
+    background: var(--paper-tint);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 64px;
+    box-shadow: var(--shadow-sm);
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 12px;
+    padding-right: 18px;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .brand .mark {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -.01em;
+    color: var(--ink);
+  }
+  .brand .mark em {
+    font-style: italic;
+    color: var(--accent-brick);
+    margin-right: 4px;
+  }
+  .brand .sub {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .toolgroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    border-right: 1px solid var(--rule-soft);
+    height: 36px;
+  }
+  .toolgroup:last-child { border-right: none; margin-left: auto; }
+  .toolgroup .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-right: 6px;
+  }
+  .btn {
+    appearance: none; border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .15s, border-color .15s, transform .08s;
+  }
+  .btn:hover { background: var(--paper-edge); border-color: var(--ink-mute); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: var(--accent-blue); color: var(--paper);
+    border-color: var(--accent-blue);
+  }
+  .btn.primary:hover { background: var(--accent-blue-soft); }
+  .btn.brick {
+    background: var(--accent-brick); color: var(--paper);
+    border-color: var(--accent-brick);
+  }
+  .btn.brick:hover { background: var(--accent-brick-soft); }
+  .btn.ghost {
+    background: transparent;
+    border-color: var(--rule-soft);
+  }
+  .btn.icon { padding: 7px 8px; }
+
+  /* ============= Canvas area ============= */
+  .canvas-wrap {
+    grid-area: canvas;
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(var(--bg-canvas), var(--bg-canvas)),
+      repeating-linear-gradient(45deg, transparent 0 6px, rgba(199,185,152,.12) 6px 7px);
+    background-blend-mode: multiply;
+  }
+  .canvas-scroll {
+    position: absolute; inset: 0;
+    overflow: auto;
+    padding: 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .stage-frame {
+    position: relative;
+    background: var(--paper);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--rule);
+    padding: 6px;
+    border-radius: var(--r-sm);
+  }
+  .stage-frame::before {
+    content: "";
+    position: absolute; inset: -8px;
+    border: 1px dashed var(--rule);
+    border-radius: var(--r-sm);
+    pointer-events: none;
+    opacity: .5;
+  }
+  .stage {
+    position: relative;
+    user-select: none;
+    background: #ddd;
+    overflow: hidden;
+    line-height: 0;
+  }
+  .stage img.base {
+    display: block;
+    max-width: 100%;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+  .stage .empty-hint {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    background: var(--paper-tint);
+    color: var(--ink-mute);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 18px;
+    width: 720px; height: 420px;
+    line-height: 1.6;
+  }
+  .stage .empty-hint .small {
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* SVG overlay for leader lines */
+  .leader-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* Annotation boxes (DOM rendering for editor) */
+  .box {
+    position: absolute;
+    box-sizing: border-box;
+    cursor: move;
+    overflow: hidden;
+    line-height: 1.4;
+    transition: outline-color .12s;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  .box .box-content {
+    padding: 8px 10px;
+    height: 100%;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .box .box-title {
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    font-size: 1em;
+    line-height: 1.25;
+  }
+  .box .box-body {
+    margin: 0;
+    flex: 1;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .box.selected { outline-color: var(--accent-blue); }
+  .handle {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: var(--paper);
+    border: 1.5px solid var(--accent-blue);
+    border-radius: 2px;
+    z-index: 5;
+  }
+  .handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
+  .handle.n  { top: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
+  .handle.e  { right: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+  .handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+  .handle.s  { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+  .handle.w  { left: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+
+  /* leader endpoint marker (rendered on stage when selected & has leader) */
+  .leader-endpoint {
+    position: absolute;
+    width: 16px; height: 16px;
+    margin-left: -8px; margin-top: -8px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 2px solid var(--accent-brick);
+    cursor: move;
+    z-index: 6;
+    box-shadow: var(--shadow-sm);
+  }
+  .leader-endpoint::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: var(--accent-brick);
+  }
+
+  /* ============= Right panel ============= */
+  .panel {
+    grid-area: panel;
+    background: var(--paper-tint);
+    border-left: 1px solid var(--rule);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .panel-section {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .panel-section:last-child { border-bottom: none; }
+  .panel-section h3 {
+    margin: 0 0 12px 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-section h3::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule-soft);
+  }
+  .field {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .field > label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .field input[type="text"],
+  .field input[type="url"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 6px 8px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+  }
+  .field textarea {
+    resize: vertical;
+    min-height: 60px;
+    font-family: var(--font-ui);
+    line-height: 1.5;
+  }
+  .field input[type="number"] {
+    width: 100%;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 6px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+  }
+  .field input[type="color"] {
+    width: 100%; height: 28px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 2px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+  }
+  .field input[type="range"] {
+    width: 100%;
+  }
+  .field-stack {
+    margin-bottom: 10px;
+  }
+  .field-stack > label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .field-row .field {
+    display: block;
+    margin-bottom: 0;
+  }
+  .field-row .field label {
+    font-size: 11px;
+    margin-bottom: 4px;
+    display: block;
+  }
+  .check {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .check input[type="checkbox"] {
+    appearance: none;
+    width: 16px; height: 16px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+  }
+  .check input[type="checkbox"]:checked {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+  }
+  .check input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 5px;
+    width: 4px; height: 8px;
+    border: solid var(--paper);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .check label {
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+
+  /* segmented control */
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .seg button {
+    appearance: none;
+    border: none;
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    padding: 7px 8px;
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.active {
+    background: var(--accent-blue);
+    color: var(--paper);
+  }
+
+  /* Box list */
+  .box-list {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .box-list-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    background: var(--paper);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .box-list-item:hover { border-color: var(--ink-mute); }
+  .box-list-item.active {
+    border-color: var(--accent-blue);
+    background: rgba(42,69,103,.06);
+  }
+  .box-list-item .swatch {
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .box-list-item .preview {
+    flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--ink);
+  }
+  .box-list-item .id {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+  }
+  .box-list-empty {
+    text-align: center;
+    color: var(--ink-mute);
+    font-size: 12px;
+    padding: 18px 8px;
+    font-style: italic;
+    font-family: var(--font-display);
+  }
+
+  /* image source switcher */
+  .src-pane { display: none; }
+  .src-pane.active { display: block; }
+  .file-drop {
+    border: 1.5px dashed var(--rule);
+    border-radius: var(--r-sm);
+    padding: 18px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--paper);
+    transition: background .15s, border-color .15s;
+  }
+  .file-drop:hover { background: var(--paper-edge); border-color: var(--ink-mute); }
+  .file-drop p {
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .file-drop .hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* Help footnote */
+  .footnote {
+    padding: 12px 18px;
+    font-size: 11px;
+    color: var(--ink-mute);
+    line-height: 1.6;
+    border-top: 1px solid var(--rule-soft);
+    background: var(--paper);
+  }
+  .footnote kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--paper-tint);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
+
+  /* dropdown menu */
+  .menu-wrap { position: relative; }
+  .menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-md);
+    min-width: 180px;
+    padding: 4px;
+    z-index: 100;
+    display: none;
+  }
+  .menu.open { display: block; }
+  .menu button {
+    display: flex; align-items: center;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 8px 10px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: var(--r-xs);
+    gap: 8px;
+  }
+  .menu button:hover { background: var(--paper-tint); }
+  .menu button .ext {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+  }
+  .menu hr {
+    border: none;
+    border-top: 1px solid var(--rule-soft);
+    margin: 4px 0;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 18px;
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Responsive small screens */
+  @media (max-width: 880px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 50vh 1fr;
+      grid-template-areas: "topbar" "canvas" "panel";
+    }
+    .panel { border-left: none; border-top: 1px solid var(--rule); }
+    .topbar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 10px; }
+    .toolgroup { padding: 0 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== Top bar ===== -->
+  <div class="topbar">
+    <div class="brand">
+      <div>
+        <div class="mark"><em>Annot.</em>圖像說明框編輯器</div>
+        <div class="sub">Annotation Editor · v1</div>
+      </div>
+    </div>
+
+    <div class="toolgroup">
+      <span class="label">Box</span>
+      <button class="btn" id="btn-add">＋ 新增框</button>
+      <button class="btn ghost" id="btn-duplicate" disabled>複製</button>
+      <button class="btn ghost" id="btn-delete" disabled>刪除</button>
+    </div>
+
+    <div class="toolgroup">
+      <span class="label">File</span>
+      <button class="btn ghost" id="btn-import">匯入 JSON</button>
+      <input type="file" id="file-import" accept=".json" style="display:none">
+    </div>
+
+    <div class="toolgroup">
+      <span class="label">Export</span>
+      <div class="menu-wrap">
+        <button class="btn primary" id="btn-export">輸出 ▾</button>
+        <div class="menu" id="export-menu">
+          <button data-export="html">HTML <span class="ext">.html</span></button>
+          <button data-export="svg">SVG <span class="ext">.svg</span></button>
+          <button data-export="png">PNG <span class="ext">.png</span></button>
+          <button data-export="jpg">JPG <span class="ext">.jpg</span></button>
+          <hr>
+          <button data-export="json">儲存設定檔 <span class="ext">.json</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Canvas ===== -->
+  <div class="canvas-wrap">
+    <div class="canvas-scroll" id="canvas-scroll">
+      <div class="stage-frame">
+        <div class="stage" id="stage">
+          <div class="empty-hint" id="empty-hint">
+            <div>從右側面板載入一張圖像，</div>
+            <div>就能開始為它加上說明框。</div>
+            <div class="small">Load an image to begin</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Right panel ===== -->
+  <div class="panel" id="panel">
+
+    <!-- Image source -->
+    <div class="panel-section">
+      <h3>底圖來源</h3>
+      <div class="seg" id="src-seg">
+        <button data-src="upload" class="active">上傳檔案</button>
+        <button data-src="url">貼網址</button>
+      </div>
+      <div class="src-pane active" id="src-pane-upload">
+        <div class="file-drop" id="file-drop">
+          <p>點此選擇圖片</p>
+          <p class="hint">或拖放檔案到此處</p>
+          <input type="file" id="file-input" accept="image/*" style="display:none">
+        </div>
+      </div>
+      <div class="src-pane" id="src-pane-url">
+        <div class="field-stack">
+          <label>圖片網址</label>
+          <input type="url" id="url-input" placeholder="https://...">
+        </div>
+        <button class="btn" id="btn-load-url" style="width:100%">載入</button>
+      </div>
+    </div>
+
+    <!-- Box list (when no selection) -->
+    <div class="panel-section" id="section-list">
+      <h3>說明框列表 <span id="box-count" style="font-family:var(--font-mono);font-size:10px;color:var(--ink-mute);text-transform:none;letter-spacing:0;">0</span></h3>
+      <div class="box-list" id="box-list">
+        <div class="box-list-empty">尚未加入說明框</div>
+      </div>
+    </div>
+
+    <!-- Selected box editor -->
+    <div class="panel-section" id="section-editor" style="display:none">
+      <h3>說明框設定</h3>
+
+      <div class="check">
+        <input type="checkbox" id="has-title">
+        <label for="has-title">顯示標題列</label>
+      </div>
+
+      <div class="field-stack" id="title-field" style="display:none">
+        <label>標題</label>
+        <input type="text" id="title-input" placeholder="標題文字">
+      </div>
+
+      <div class="field-stack">
+        <label>內文</label>
+        <textarea id="body-input" placeholder="說明文字（支援換行）"></textarea>
+      </div>
+
+      <h3 style="margin-top:18px">外觀</h3>
+
+      <div class="field-row">
+        <div class="field">
+          <label>背景色</label>
+          <input type="color" id="bg-color" value="#FFFFFF">
+        </div>
+        <div class="field">
+          <label>透明度</label>
+          <input type="range" id="bg-opacity" min="0" max="100" value="95">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>文字色</label>
+          <input type="color" id="text-color" value="#1B1814">
+        </div>
+        <div class="field">
+          <label>字級 (px)</label>
+          <input type="number" id="font-size" min="8" max="72" value="14">
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">框線</h3>
+
+      <div class="field-row">
+        <div class="field">
+          <label>顏色</label>
+          <input type="color" id="border-color" value="#1B1814">
+        </div>
+        <div class="field">
+          <label>粗細 (px)</label>
+          <input type="number" id="border-width" min="0" max="12" value="1">
+        </div>
+      </div>
+
+      <div class="field-stack">
+        <label>圓角 <span id="radius-display" style="font-family:var(--font-mono);color:var(--ink-mute);font-size:11px;">0 px</span></label>
+        <input type="range" id="border-radius" min="0" max="40" value="0">
+      </div>
+
+      <h3 style="margin-top:18px">引線</h3>
+
+      <div class="check">
+        <input type="checkbox" id="has-leader">
+        <label for="has-leader">啟用引線指向</label>
+      </div>
+
+      <div id="leader-fields" style="display:none">
+        <div class="field-row">
+          <div class="field">
+            <label>線色</label>
+            <input type="color" id="leader-color" value="#1B1814">
+          </div>
+          <div class="field">
+            <label>線寬 (px)</label>
+            <input type="number" id="leader-width" min="1" max="8" value="2">
+          </div>
+        </div>
+        <div class="check">
+          <input type="checkbox" id="leader-arrow" checked>
+          <label for="leader-arrow">顯示箭頭</label>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">位置與尺寸</h3>
+      <div class="field-row">
+        <div class="field">
+          <label>X (%)</label>
+          <input type="number" id="pos-x" min="0" max="100" step="0.1">
+        </div>
+        <div class="field">
+          <label>Y (%)</label>
+          <input type="number" id="pos-y" min="0" max="100" step="0.1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>寬度 (%)</label>
+          <input type="number" id="size-w" min="2" max="100" step="0.1">
+        </div>
+        <div class="field">
+          <label>高度 (%)</label>
+          <input type="number" id="size-h" min="2" max="100" step="0.1">
+        </div>
+      </div>
+    </div>
+
+    <div class="footnote">
+      <strong style="color:var(--ink-soft);font-weight:600">操作</strong>　
+      點擊框選取 · 拖曳移動 · 抓角縮放 ·
+      <kbd>Del</kbd> 刪除 · <kbd>Esc</kbd> 取消選取<br>
+      啟用引線後可拖曳紅色端點調整指向位置。
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   STATE
+   ================================================================= */
+const STORAGE_KEY = "annot-editor-v1";
+const state = {
+  image: null, // { src, naturalWidth, naturalHeight, mode: 'base64'|'url' }
+  boxes: [],
+  selectedId: null,
+  srcMode: "upload",
+  nextId: 1,
+};
+
+function nid() { return state.nextId++; }
+
+function defaultBox(stage) {
+  const w = 24, h = 12;
+  return {
+    id: nid(),
+    x: 50 - w/2, y: 50 - h/2,
+    width: w, height: h,
+    bgColor: "#FFFFFF",
+    bgOpacity: 95,
+    borderColor: "#1B1814",
+    borderWidth: 1,
+    borderRadius: 4,
+    textColor: "#1B1814",
+    fontSize: 14,
+    title: null, // null = no title
+    body: "說明文字",
+    leader: null, // { x, y, color, width, arrow }
+  };
+}
+
+/* =================================================================
+   DOM REFS
+   ================================================================= */
+const el = (id) => document.getElementById(id);
+const stage = el("stage");
+const emptyHint = el("empty-hint");
+const sectionList = el("section-list");
+const sectionEditor = el("section-editor");
+const boxList = el("box-list");
+const boxCount = el("box-count");
+
+/* =================================================================
+   UTILITIES
+   ================================================================= */
+function toast(msg) {
+  const t = el("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+function hexToRgba(hex, opacityPercent) {
+  const h = hex.replace("#","");
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${opacityPercent/100})`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function escapeXml(s) { return escapeHtml(s); }
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function getStageRect() {
+  return stage.getBoundingClientRect();
+}
+
+function pxToPctX(px) {
+  const r = getStageRect();
+  return (px / r.width) * 100;
+}
+function pxToPctY(px) {
+  const r = getStageRect();
+  return (px / r.height) * 100;
+}
+
+/* =================================================================
+   PERSISTENCE
+   ================================================================= */
+function persist() {
+  try {
+    const data = { image: state.image, boxes: state.boxes, nextId: state.nextId };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (err) {
+    // localStorage may fail for very large base64 images
+    console.warn("Persist failed:", err);
+  }
+}
+function restore() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.image) state.image = data.image;
+    if (Array.isArray(data.boxes)) state.boxes = data.boxes;
+    if (data.nextId) state.nextId = data.nextId;
+  } catch (err) {
+    console.warn("Restore failed:", err);
+  }
+}
+
+/* =================================================================
+   IMAGE LOADING
+   ================================================================= */
+function loadImage(src, mode) {
+  const img = new Image();
+  img.crossOrigin = "anonymous"; // best-effort for canvas export later
+  img.onload = () => {
+    state.image = {
+      src,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      mode,
+    };
+    renderStage();
+    persist();
+  };
+  img.onerror = () => {
+    toast("圖片載入失敗");
+  };
+  img.src = src;
+}
+
+el("file-input").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadImage(ev.target.result, "base64");
+  reader.readAsDataURL(f);
+});
+
+el("file-drop").addEventListener("click", () => el("file-input").click());
+el("file-drop").addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.currentTarget.style.background = "var(--paper-edge)";
+});
+el("file-drop").addEventListener("dragleave", (e) => {
+  e.currentTarget.style.background = "";
+});
+el("file-drop").addEventListener("drop", (e) => {
+  e.preventDefault();
+  e.currentTarget.style.background = "";
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith("image/")) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadImage(ev.target.result, "base64");
+  reader.readAsDataURL(f);
+});
+
+el("btn-load-url").addEventListener("click", () => {
+  const url = el("url-input").value.trim();
+  if (!url) { toast("請輸入網址"); return; }
+  loadImage(url, "url");
+});
+
+/* Source switcher */
+document.querySelectorAll("#src-seg button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#src-seg button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".src-pane").forEach(p => p.classList.remove("active"));
+    el("src-pane-" + btn.dataset.src).classList.add("active");
+    state.srcMode = btn.dataset.src;
+  });
+});
+
+/* =================================================================
+   RENDERING
+   ================================================================= */
+function renderStage() {
+  // Clear existing children except empty-hint
+  Array.from(stage.children).forEach(c => {
+    if (c.id !== "empty-hint") c.remove();
+  });
+
+  if (!state.image) {
+    emptyHint.style.display = "flex";
+    stage.style.width = "";
+    stage.style.height = "";
+    return;
+  }
+
+  emptyHint.style.display = "none";
+
+  // Determine display size: cap to viewport
+  const wrap = el("canvas-scroll");
+  const wrapW = wrap.clientWidth - 56; // padding
+  const wrapH = wrap.clientHeight - 56;
+  const ratio = state.image.naturalWidth / state.image.naturalHeight;
+  let dispW = state.image.naturalWidth;
+  let dispH = state.image.naturalHeight;
+  if (dispW > wrapW) { dispW = wrapW; dispH = dispW / ratio; }
+  if (dispH > wrapH) { dispH = wrapH; dispW = dispH * ratio; }
+
+  stage.style.width = dispW + "px";
+  stage.style.height = dispH + "px";
+
+  // Image
+  const img = document.createElement("img");
+  img.className = "base";
+  img.src = state.image.src;
+  img.style.width = "100%";
+  img.style.height = "100%";
+  stage.appendChild(img);
+
+  // SVG overlay for leader lines (viewBox in image pixel coords for uniform stroke)
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("class", "leader-svg");
+  svg.setAttribute("viewBox", `0 0 ${state.image.naturalWidth} ${state.image.naturalHeight}`);
+  stage.appendChild(svg);
+
+  // Render boxes
+  state.boxes.forEach(b => renderBox(b));
+  // Render leader lines (after boxes so we know their positions)
+  renderLeaders(svg);
+
+  updatePanel();
+}
+
+function renderBox(b) {
+  const div = document.createElement("div");
+  div.className = "box" + (b.id === state.selectedId ? " selected" : "");
+  div.dataset.id = b.id;
+  div.style.left = b.x + "%";
+  div.style.top = b.y + "%";
+  div.style.width = b.width + "%";
+  div.style.height = b.height + "%";
+  div.style.background = hexToRgba(b.bgColor, b.bgOpacity);
+  div.style.border = `${b.borderWidth}px solid ${b.borderColor}`;
+  div.style.borderRadius = b.borderRadius + "px";
+  div.style.color = b.textColor;
+  div.style.fontSize = b.fontSize + "px";
+
+  let inner = '<div class="box-content">';
+  if (b.title !== null) {
+    inner += `<div class="box-title">${escapeHtml(b.title)}</div>`;
+  }
+  inner += `<div class="box-body">${escapeHtml(b.body)}</div>`;
+  inner += "</div>";
+  div.innerHTML = inner;
+
+  // Add resize handles if selected
+  if (b.id === state.selectedId) {
+    ["nw","n","ne","e","se","s","sw","w"].forEach(dir => {
+      const h = document.createElement("div");
+      h.className = "handle " + dir;
+      h.dataset.handle = dir;
+      div.appendChild(h);
+    });
+  }
+
+  stage.appendChild(div);
+
+  // Leader endpoint marker (only when selected and has leader)
+  if (b.id === state.selectedId && b.leader) {
+    const lp = document.createElement("div");
+    lp.className = "leader-endpoint";
+    lp.style.left = b.leader.x + "%";
+    lp.style.top = b.leader.y + "%";
+    lp.dataset.kind = "leader-endpoint";
+    stage.appendChild(lp);
+  }
+}
+
+function renderLeaders(svg) {
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const W = state.image.naturalWidth;
+  const H = state.image.naturalHeight;
+  state.boxes.forEach(b => {
+    if (!b.leader) return;
+    // Convert percentage coords to image pixels
+    const cx = (b.x + b.width / 2) / 100 * W;
+    const cy = (b.y + b.height / 2) / 100 * H;
+    const ex = b.leader.x / 100 * W;
+    const ey = b.leader.y / 100 * H;
+    const x1 = b.x / 100 * W, y1 = b.y / 100 * H;
+    const x2 = (b.x + b.width) / 100 * W, y2 = (b.y + b.height) / 100 * H;
+    const anchor = lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2);
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const line = document.createElementNS(svgNS, "line");
+    line.setAttribute("x1", anchor.x);
+    line.setAttribute("y1", anchor.y);
+    line.setAttribute("x2", ex);
+    line.setAttribute("y2", ey);
+    line.setAttribute("stroke", b.leader.color);
+    line.setAttribute("stroke-width", b.leader.width);
+    line.setAttribute("stroke-linecap", "round");
+    if (b.leader.arrow) {
+      const markerId = "arrow-" + b.id;
+      ensureArrowMarker(svg, markerId, b.leader.color);
+      line.setAttribute("marker-end", `url(#${markerId})`);
+    }
+    svg.appendChild(line);
+  });
+}
+
+function ensureArrowMarker(svg, id, color) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  let defs = svg.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS(svgNS, "defs");
+    svg.appendChild(defs);
+  }
+  const existing = defs.querySelector("#" + id);
+  if (existing) return;
+  const marker = document.createElementNS(svgNS, "marker");
+  marker.setAttribute("id", id);
+  marker.setAttribute("viewBox", "0 0 10 10");
+  marker.setAttribute("refX", "8");
+  marker.setAttribute("refY", "5");
+  marker.setAttribute("markerWidth", "6");
+  marker.setAttribute("markerHeight", "6");
+  marker.setAttribute("orient", "auto-start-reverse");
+  marker.setAttribute("markerUnits", "strokeWidth");
+  const path = document.createElementNS(svgNS, "path");
+  path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+  path.setAttribute("fill", color);
+  marker.appendChild(path);
+  defs.appendChild(marker);
+}
+
+// Returns {x,y} on rect border where the line from (cx,cy) to (ex,ey) exits the rect
+function lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2) {
+  const dx = ex - cx, dy = ey - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  let tMin = 1;
+  // Check each side
+  const sides = [
+    { t: dx !== 0 ? (x1 - cx) / dx : Infinity, side: "x", val: x1 },
+    { t: dx !== 0 ? (x2 - cx) / dx : Infinity, side: "x", val: x2 },
+    { t: dy !== 0 ? (y1 - cy) / dy : Infinity, side: "y", val: y1 },
+    { t: dy !== 0 ? (y2 - cy) / dy : Infinity, side: "y", val: y2 },
+  ];
+  for (const s of sides) {
+    if (s.t > 0 && s.t < tMin) {
+      const px = cx + dx * s.t;
+      const py = cy + dy * s.t;
+      // verify within rect bounds on the perpendicular axis
+      const eps = 1e-6;
+      if (s.side === "x") {
+        if (py >= y1 - eps && py <= y2 + eps) tMin = s.t;
+      } else {
+        if (px >= x1 - eps && px <= x2 + eps) tMin = s.t;
+      }
+    }
+  }
+  return { x: cx + dx * tMin, y: cy + dy * tMin };
+}
+
+/* =================================================================
+   PANEL UPDATE
+   ================================================================= */
+function updatePanel() {
+  // Box list
+  boxCount.textContent = state.boxes.length;
+  if (state.boxes.length === 0) {
+    boxList.innerHTML = '<div class="box-list-empty">尚未加入說明框</div>';
+  } else {
+    boxList.innerHTML = "";
+    state.boxes.forEach((b, i) => {
+      const item = document.createElement("div");
+      item.className = "box-list-item" + (b.id === state.selectedId ? " active" : "");
+      item.dataset.id = b.id;
+      const preview = (b.title || b.body || "(空白)").substring(0, 20);
+      item.innerHTML = `
+        <div class="swatch" style="background:${b.bgColor}; border:1px solid ${b.borderColor};"></div>
+        <div class="preview">${escapeHtml(preview)}</div>
+        <div class="id">#${i+1}</div>
+      `;
+      item.addEventListener("click", () => selectBox(b.id));
+      boxList.appendChild(item);
+    });
+  }
+
+  // Editor
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (!sel) {
+    sectionEditor.style.display = "none";
+    sectionList.style.display = "block";
+    el("btn-delete").disabled = true;
+    el("btn-duplicate").disabled = true;
+    return;
+  }
+  el("btn-delete").disabled = false;
+  el("btn-duplicate").disabled = false;
+  sectionEditor.style.display = "block";
+  sectionList.style.display = "block";
+
+  el("has-title").checked = sel.title !== null;
+  el("title-field").style.display = sel.title !== null ? "block" : "none";
+  el("title-input").value = sel.title || "";
+  el("body-input").value = sel.body || "";
+
+  el("bg-color").value = sel.bgColor;
+  el("bg-opacity").value = sel.bgOpacity;
+  el("text-color").value = sel.textColor;
+  el("font-size").value = sel.fontSize;
+
+  el("border-color").value = sel.borderColor;
+  el("border-width").value = sel.borderWidth;
+  el("border-radius").value = sel.borderRadius;
+  el("radius-display").textContent = sel.borderRadius + " px";
+
+  el("has-leader").checked = !!sel.leader;
+  el("leader-fields").style.display = sel.leader ? "block" : "none";
+  if (sel.leader) {
+    el("leader-color").value = sel.leader.color;
+    el("leader-width").value = sel.leader.width;
+    el("leader-arrow").checked = sel.leader.arrow;
+  }
+
+  el("pos-x").value = sel.x.toFixed(1);
+  el("pos-y").value = sel.y.toFixed(1);
+  el("size-w").value = sel.width.toFixed(1);
+  el("size-h").value = sel.height.toFixed(1);
+}
+
+/* =================================================================
+   BOX OPS
+   ================================================================= */
+function selectBox(id) {
+  state.selectedId = id;
+  renderStage();
+}
+
+function deselect() {
+  state.selectedId = null;
+  renderStage();
+}
+
+function addBox() {
+  if (!state.image) { toast("請先載入圖片"); return; }
+  const b = defaultBox(stage);
+  state.boxes.push(b);
+  state.selectedId = b.id;
+  persist();
+  renderStage();
+}
+
+function deleteSelected() {
+  if (state.selectedId == null) return;
+  state.boxes = state.boxes.filter(b => b.id !== state.selectedId);
+  state.selectedId = null;
+  persist();
+  renderStage();
+}
+
+function duplicateSelected() {
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (!sel) return;
+  const copy = JSON.parse(JSON.stringify(sel));
+  copy.id = nid();
+  copy.x = clamp(copy.x + 3, 0, 100 - copy.width);
+  copy.y = clamp(copy.y + 3, 0, 100 - copy.height);
+  state.boxes.push(copy);
+  state.selectedId = copy.id;
+  persist();
+  renderStage();
+}
+
+el("btn-add").addEventListener("click", addBox);
+el("btn-delete").addEventListener("click", deleteSelected);
+el("btn-duplicate").addEventListener("click", duplicateSelected);
+
+/* =================================================================
+   PANEL CONTROLS
+   ================================================================= */
+function updateSelected(patch) {
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (!sel) return;
+  Object.assign(sel, patch);
+  persist();
+  renderStage();
+}
+
+el("has-title").addEventListener("change", (e) => {
+  updateSelected({ title: e.target.checked ? "" : null });
+});
+el("title-input").addEventListener("input", (e) => updateSelected({ title: e.target.value }));
+el("body-input").addEventListener("input", (e) => updateSelected({ body: e.target.value }));
+
+el("bg-color").addEventListener("input", (e) => updateSelected({ bgColor: e.target.value }));
+el("bg-opacity").addEventListener("input", (e) => updateSelected({ bgOpacity: +e.target.value }));
+el("text-color").addEventListener("input", (e) => updateSelected({ textColor: e.target.value }));
+el("font-size").addEventListener("input", (e) => updateSelected({ fontSize: +e.target.value }));
+
+el("border-color").addEventListener("input", (e) => updateSelected({ borderColor: e.target.value }));
+el("border-width").addEventListener("input", (e) => updateSelected({ borderWidth: +e.target.value }));
+el("border-radius").addEventListener("input", (e) => {
+  el("radius-display").textContent = e.target.value + " px";
+  updateSelected({ borderRadius: +e.target.value });
+});
+
+el("has-leader").addEventListener("change", (e) => {
+  if (e.target.checked) {
+    const sel = state.boxes.find(b => b.id === state.selectedId);
+    if (!sel) return;
+    // Default leader endpoint: 10% diagonal from box center toward image edge
+    const cx = sel.x + sel.width / 2;
+    const cy = sel.y + sel.height / 2;
+    const lx = clamp(cx + 15, 5, 95);
+    const ly = clamp(cy + 15, 5, 95);
+    updateSelected({ leader: {
+      x: lx, y: ly,
+      color: "#1B1814", width: 2, arrow: true
+    }});
+  } else {
+    updateSelected({ leader: null });
+  }
+});
+el("leader-color").addEventListener("input", (e) => {
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (sel && sel.leader) updateSelected({ leader: { ...sel.leader, color: e.target.value } });
+});
+el("leader-width").addEventListener("input", (e) => {
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (sel && sel.leader) updateSelected({ leader: { ...sel.leader, width: +e.target.value } });
+});
+el("leader-arrow").addEventListener("change", (e) => {
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (sel && sel.leader) updateSelected({ leader: { ...sel.leader, arrow: e.target.checked } });
+});
+
+["pos-x","pos-y","size-w","size-h"].forEach(id => {
+  el(id).addEventListener("change", () => {
+    const x = +el("pos-x").value;
+    const y = +el("pos-y").value;
+    const w = +el("size-w").value;
+    const h = +el("size-h").value;
+    updateSelected({ x, y, width: w, height: h });
+  });
+});
+
+/* =================================================================
+   DRAG / RESIZE / LEADER
+   ================================================================= */
+let drag = null;
+
+stage.addEventListener("mousedown", (e) => {
+  if (!state.image) return;
+  const target = e.target;
+
+  // Click on resize handle
+  if (target.classList.contains("handle")) {
+    e.stopPropagation(); e.preventDefault();
+    const sel = state.boxes.find(b => b.id === state.selectedId);
+    drag = {
+      kind: "resize", handle: target.dataset.handle,
+      startX: e.clientX, startY: e.clientY,
+      startBox: { ...sel },
+    };
+    return;
+  }
+
+  // Click on leader endpoint
+  if (target.dataset.kind === "leader-endpoint") {
+    e.stopPropagation(); e.preventDefault();
+    const sel = state.boxes.find(b => b.id === state.selectedId);
+    drag = {
+      kind: "leader", startX: e.clientX, startY: e.clientY,
+      startLeader: { ...sel.leader },
+    };
+    return;
+  }
+
+  // Click on box
+  const boxEl = target.closest(".box");
+  if (boxEl) {
+    e.preventDefault();
+    const id = +boxEl.dataset.id;
+    if (state.selectedId !== id) {
+      selectBox(id);
+    }
+    const sel = state.boxes.find(b => b.id === id);
+    drag = {
+      kind: "move", startX: e.clientX, startY: e.clientY,
+      startBox: { ...sel },
+    };
+    return;
+  }
+
+  // Click on empty area: deselect
+  deselect();
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!drag) return;
+  const r = getStageRect();
+  const dxPct = ((e.clientX - drag.startX) / r.width) * 100;
+  const dyPct = ((e.clientY - drag.startY) / r.height) * 100;
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (!sel) return;
+
+  if (drag.kind === "move") {
+    sel.x = clamp(drag.startBox.x + dxPct, 0, 100 - sel.width);
+    sel.y = clamp(drag.startBox.y + dyPct, 0, 100 - sel.height);
+  } else if (drag.kind === "resize") {
+    const sb = drag.startBox;
+    let nx = sb.x, ny = sb.y, nw = sb.width, nh = sb.height;
+    const minSize = 2;
+    const h = drag.handle;
+    if (h.includes("e")) nw = clamp(sb.width + dxPct, minSize, 100 - sb.x);
+    if (h.includes("w")) {
+      const newW = clamp(sb.width - dxPct, minSize, sb.x + sb.width);
+      nx = sb.x + (sb.width - newW);
+      nw = newW;
+    }
+    if (h.includes("s")) nh = clamp(sb.height + dyPct, minSize, 100 - sb.y);
+    if (h.includes("n")) {
+      const newH = clamp(sb.height - dyPct, minSize, sb.y + sb.height);
+      ny = sb.y + (sb.height - newH);
+      nh = newH;
+    }
+    sel.x = nx; sel.y = ny; sel.width = nw; sel.height = nh;
+  } else if (drag.kind === "leader") {
+    sel.leader.x = clamp(drag.startLeader.x + dxPct, 0, 100);
+    sel.leader.y = clamp(drag.startLeader.y + dyPct, 0, 100);
+  }
+  renderStage();
+});
+
+window.addEventListener("mouseup", () => {
+  if (drag) {
+    drag = null;
+    persist();
+  }
+});
+
+/* =================================================================
+   KEYBOARD
+   ================================================================= */
+window.addEventListener("keydown", (e) => {
+  // Ignore when typing in form fields
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+  if (e.key === "Delete" || e.key === "Backspace") {
+    if (state.selectedId != null) {
+      e.preventDefault();
+      deleteSelected();
+    }
+  } else if (e.key === "Escape") {
+    deselect();
+  } else if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    duplicateSelected();
+  }
+});
+
+/* =================================================================
+   EXPORT
+   ================================================================= */
+const exportBtn = el("btn-export");
+const exportMenu = el("export-menu");
+
+exportBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  exportMenu.classList.toggle("open");
+});
+document.addEventListener("click", () => exportMenu.classList.remove("open"));
+exportMenu.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const fmt = btn.dataset.export;
+  exportMenu.classList.remove("open");
+  doExport(fmt);
+});
+
+function doExport(fmt) {
+  if (!state.image && fmt !== "json") {
+    toast("請先載入圖片");
+    return;
+  }
+  if (fmt === "json") return exportJson();
+  if (fmt === "html") return exportHtml();
+  if (fmt === "svg")  return exportSvg();
+  if (fmt === "png")  return exportRaster("png");
+  if (fmt === "jpg")  return exportRaster("jpg");
+}
+
+function downloadBlob(blob, filename) {
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportJson() {
+  const data = {
+    version: 1,
+    image: state.image,
+    boxes: state.boxes,
+    nextId: state.nextId,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  downloadBlob(blob, `annotation-${Date.now()}.json`);
+  toast("已輸出 JSON");
+}
+
+/* ----- Build standalone HTML ----- */
+function buildStandaloneHtml() {
+  const W = state.image.naturalWidth;
+  const H = state.image.naturalHeight;
+  const aspect = (H / W * 100).toFixed(4);
+
+  // Build SVG markup for leaders (viewBox uses image pixel coords)
+  let leaderSvg = "";
+  state.boxes.forEach(b => {
+    if (!b.leader) return;
+    const cx = (b.x + b.width / 2) / 100 * W;
+    const cy = (b.y + b.height / 2) / 100 * H;
+    const ex = b.leader.x / 100 * W;
+    const ey = b.leader.y / 100 * H;
+    const x1 = b.x / 100 * W, y1 = b.y / 100 * H;
+    const x2 = (b.x + b.width) / 100 * W, y2 = (b.y + b.height) / 100 * H;
+    const anchor = lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2);
+    let line = `<line x1="${anchor.x}" y1="${anchor.y}" x2="${ex}" y2="${ey}" stroke="${b.leader.color}" stroke-width="${b.leader.width}" stroke-linecap="round"`;
+    if (b.leader.arrow) {
+      line += ` marker-end="url(#arrow-${b.id})"`;
+    }
+    line += " />";
+    leaderSvg += line;
+  });
+  let defs = "";
+  const arrowIds = new Set();
+  state.boxes.forEach(b => {
+    if (b.leader && b.leader.arrow && !arrowIds.has(b.id)) {
+      arrowIds.add(b.id);
+      defs += `<marker id="arrow-${b.id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M 0 0 L 10 5 L 0 10 z" fill="${b.leader.color}"/></marker>`;
+    }
+  });
+
+  // Boxes as absolutely positioned divs
+  let boxHtml = "";
+  state.boxes.forEach(b => {
+    const bg = hexToRgba(b.bgColor, b.bgOpacity);
+    let inner = "";
+    if (b.title !== null) inner += `<div class="t">${escapeHtml(b.title)}</div>`;
+    inner += `<div class="b">${escapeHtml(b.body)}</div>`;
+    boxHtml += `<div class="box" style="left:${b.x}%;top:${b.y}%;width:${b.width}%;height:${b.height}%;background:${bg};border:${b.borderWidth}px solid ${b.borderColor};border-radius:${b.borderRadius}px;color:${b.textColor};font-size:${b.fontSize}px;">${inner}</div>`;
+  });
+
+  return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annotated Image</title>
+<style>
+  body { margin: 0; padding: 24px; background: #f5f1e8; display: flex; align-items: flex-start; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif; }
+  .frame { position: relative; width: 100%; max-width: ${W}px; box-shadow: 0 8px 32px rgba(0,0,0,.12); }
+  .stage { position: relative; width: 100%; padding-bottom: ${aspect}%; line-height: 0; }
+  .stage > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .box { position: absolute; box-sizing: border-box; overflow: hidden; line-height: 1.4; }
+  .box .t { font-weight: 600; margin-bottom: 4px; line-height: 1.25; }
+  .box .b { white-space: pre-wrap; word-wrap: break-word; }
+  .box > .t, .box > .b { padding: 0 10px; }
+  .box > .t { padding-top: 8px; }
+  .box > .b:not(:first-child) { padding-bottom: 8px; }
+  .box > .b:first-child { padding: 8px 10px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="stage">
+      <img src="${state.image.src}" alt="">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <defs>${defs}</defs>
+        ${leaderSvg}
+      </svg>
+      ${boxHtml}
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function exportHtml() {
+  const html = buildStandaloneHtml();
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  downloadBlob(blob, `annotation-${Date.now()}.html`);
+  toast("已輸出 HTML");
+}
+
+/* ----- SVG export ----- */
+function buildSvg() {
+  const W = state.image.naturalWidth;
+  const H = state.image.naturalHeight;
+
+  let defs = "";
+  const arrowIds = new Set();
+  state.boxes.forEach(b => {
+    if (b.leader && b.leader.arrow && !arrowIds.has(b.id)) {
+      arrowIds.add(b.id);
+      defs += `<marker id="arrow-${b.id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M 0 0 L 10 5 L 0 10 z" fill="${b.leader.color}"/></marker>`;
+    }
+  });
+
+  let leaderSvg = "";
+  state.boxes.forEach(b => {
+    if (!b.leader) return;
+    const cx = (b.x + b.width / 2) / 100 * W;
+    const cy = (b.y + b.height / 2) / 100 * H;
+    const ex = b.leader.x / 100 * W;
+    const ey = b.leader.y / 100 * H;
+    const x1 = b.x / 100 * W, y1 = b.y / 100 * H;
+    const x2 = (b.x + b.width) / 100 * W, y2 = (b.y + b.height) / 100 * H;
+    const anchor = lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2);
+    let line = `<line x1="${anchor.x}" y1="${anchor.y}" x2="${ex}" y2="${ey}" stroke="${b.leader.color}" stroke-width="${b.leader.width}" stroke-linecap="round"`;
+    if (b.leader.arrow) line += ` marker-end="url(#arrow-${b.id})"`;
+    line += " />";
+    leaderSvg += line;
+  });
+
+  // Boxes as foreignObject (preserves text wrapping); include simple style
+  let boxSvg = "";
+  state.boxes.forEach(b => {
+    const bg = hexToRgba(b.bgColor, b.bgOpacity);
+    const x = b.x / 100 * W, y = b.y / 100 * H;
+    const w = b.width / 100 * W, h = b.height / 100 * H;
+    // Use rect + foreignObject for text
+    boxSvg += `<g>`;
+    boxSvg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${bg}" stroke="${b.borderColor}" stroke-width="${b.borderWidth}" rx="${b.borderRadius}" ry="${b.borderRadius}" />`;
+    let textHtml = `<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif; color:${b.textColor}; font-size:${b.fontSize}px; line-height:1.4; padding:8px 10px; box-sizing:border-box; height:100%; overflow:hidden;">`;
+    if (b.title !== null) textHtml += `<div style="font-weight:600;margin-bottom:4px;line-height:1.25;">${escapeXml(b.title)}</div>`;
+    textHtml += `<div style="white-space:pre-wrap;word-wrap:break-word;">${escapeXml(b.body)}</div>`;
+    textHtml += `</div>`;
+    boxSvg += `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}">${textHtml}</foreignObject>`;
+    boxSvg += `</g>`;
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<defs>${defs}</defs>
+<image href="${state.image.src}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>
+${leaderSvg}
+${boxSvg}
+</svg>`;
+}
+
+function exportSvg() {
+  const svg = buildSvg();
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  downloadBlob(blob, `annotation-${Date.now()}.svg`);
+  toast("已輸出 SVG");
+}
+
+/* ----- PNG / JPG export via canvas ----- */
+function exportRaster(format) {
+  const W = state.image.naturalWidth;
+  const H = state.image.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // Background for JPG (no transparency)
+  if (format === "jpg") {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Load image (need to handle CORS for URL-mode)
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, W, H);
+    // Draw boxes
+    state.boxes.forEach(b => drawBoxOnCanvas(ctx, b, W, H));
+    // Try to export
+    try {
+      const mime = format === "jpg" ? "image/jpeg" : "image/png";
+      const dataUrl = canvas.toDataURL(mime, format === "jpg" ? 0.92 : undefined);
+      // dataURL → blob
+      fetch(dataUrl).then(r => r.blob()).then(blob => {
+        downloadBlob(blob, `annotation-${Date.now()}.${format === "jpg" ? "jpg" : "png"}`);
+        toast(`已輸出 ${format.toUpperCase()}`);
+      });
+    } catch (err) {
+      toast("輸出失敗：圖片可能因 CORS 限制無法轉檔，請改用上傳或可允許跨域的網址");
+      console.error(err);
+    }
+  };
+  img.onerror = () => {
+    toast("圖片載入失敗，無法輸出");
+  };
+  img.src = state.image.src;
+}
+
+function drawBoxOnCanvas(ctx, b, W, H) {
+  const x = b.x / 100 * W;
+  const y = b.y / 100 * H;
+  const w = b.width / 100 * W;
+  const h = b.height / 100 * H;
+  const r = Math.min(b.borderRadius, w/2, h/2);
+
+  // Leader line first (drawn under box for clean look? actually under arrow tip)
+  if (b.leader) {
+    const cx = x + w/2;
+    const cy = y + h/2;
+    const ex = b.leader.x / 100 * W;
+    const ey = b.leader.y / 100 * H;
+    const anchor = lineRectIntersect(cx, cy, ex, ey, x, y, x+w, y+h);
+    ctx.strokeStyle = b.leader.color;
+    ctx.fillStyle = b.leader.color;
+    ctx.lineWidth = b.leader.width;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(anchor.x, anchor.y);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    if (b.leader.arrow) {
+      // Draw arrowhead at endpoint
+      const angle = Math.atan2(ey - anchor.y, ex - anchor.x);
+      const headLen = b.leader.width * 6;
+      const headAngle = Math.PI / 6;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * Math.cos(angle - headAngle), ey - headLen * Math.sin(angle - headAngle));
+      ctx.lineTo(ex - headLen * Math.cos(angle + headAngle), ey - headLen * Math.sin(angle + headAngle));
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // Box bg + border
+  ctx.fillStyle = hexToRgba(b.bgColor, b.bgOpacity);
+  ctx.strokeStyle = b.borderColor;
+  ctx.lineWidth = b.borderWidth;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  if (b.borderWidth > 0) ctx.stroke();
+
+  // Clip to box for text
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+
+  // Text
+  ctx.fillStyle = b.textColor;
+  const padX = 10, padY = 8;
+  let cursorY = y + padY;
+  const textWidth = w - padX * 2;
+  const lineHeightTitle = b.fontSize * 1.25;
+  const lineHeightBody = b.fontSize * 1.4;
+
+  if (b.title !== null) {
+    ctx.font = `600 ${b.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif`;
+    ctx.textBaseline = "top";
+    cursorY = wrapText(ctx, b.title, x + padX, cursorY, textWidth, lineHeightTitle);
+    cursorY += 4;
+  }
+  ctx.font = `400 ${b.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif`;
+  ctx.textBaseline = "top";
+  // Body supports manual newlines
+  const bodyLines = (b.body || "").split("\n");
+  for (const para of bodyLines) {
+    cursorY = wrapText(ctx, para, x + padX, cursorY, textWidth, lineHeightBody);
+  }
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Word-wrap text. Handles CJK by char-level wrap when no spaces.
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  if (!text) return y;
+  // Greedy break: try to break on spaces, fall back to per-character
+  let line = "";
+  let cy = y;
+  // For CJK we can break per character; for latin, prefer space-break.
+  // Strategy: iterate char by char, but track last space.
+  let lastSpaceIdx = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const test = line + ch;
+    const w = ctx.measureText(test).width;
+    if (w > maxWidth && line.length > 0) {
+      // Break: if there was a space, break there; else break here
+      let breakAt = lastSpaceIdx >= 0 ? lastSpaceIdx + 1 : line.length;
+      const out = line.substring(0, breakAt).trimEnd();
+      ctx.fillText(out, x, cy);
+      cy += lineHeight;
+      const remainder = line.substring(breakAt) + ch;
+      line = remainder;
+      lastSpaceIdx = -1;
+      // recalc lastSpaceIdx in remainder
+      const sp = remainder.lastIndexOf(" ");
+      if (sp >= 0) lastSpaceIdx = sp;
+    } else {
+      line = test;
+      if (ch === " ") lastSpaceIdx = line.length - 1;
+    }
+  }
+  if (line.length > 0) {
+    ctx.fillText(line, x, cy);
+    cy += lineHeight;
+  }
+  return cy;
+}
+
+/* =================================================================
+   IMPORT JSON
+   ================================================================= */
+el("btn-import").addEventListener("click", () => el("file-import").click());
+el("file-import").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.image) state.image = data.image;
+      if (Array.isArray(data.boxes)) state.boxes = data.boxes;
+      if (data.nextId) state.nextId = data.nextId;
+      state.selectedId = null;
+      persist();
+      renderStage();
+      toast("已匯入 JSON");
+    } catch (err) {
+      toast("JSON 解析失敗");
+    }
+  };
+  reader.readAsText(f);
+  // Reset input so same file can be re-selected
+  e.target.value = "";
+});
+
+/* =================================================================
+   INIT
+   ================================================================= */
+restore();
+window.addEventListener("resize", () => {
+  if (state.image) renderStage();
+});
+renderStage();
+
+// Debug hook: expose internals for inspection in console / testing
+window.__editor = {
+  state, renderStage, addBox, deleteSelected, duplicateSelected,
+  updateSelected, deselect, selectBox,
+  buildStandaloneHtml, buildSvg, hexToRgba, lineRectIntersect,
+};
+</script>
+</body>
+</html>
