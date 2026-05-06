@@ -46,7 +46,7 @@ git push -u origin main
 #    儲存後等一兩分鐘
 ```
 
-完成後網址是 `https://<你的帳號>.github.io/<repo-name>/`。
+完成後網址是 `[https://<你的帳號>.github.io/<repo-name>](https://gentuoman.github.io/Annotation_Editor/)/`。
 
 > 也可以丟到任何靜態主機（Netlify / Cloudflare Pages / 自己的伺服器），單純把 `index.html` 放到 web root 即可。
 
