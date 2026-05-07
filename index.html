@@ -602,6 +602,93 @@
   }
   .toast.show { opacity: 1; }
 
+  /* Modal (HTML snippet preview) */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(27,24,20,0.55);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    width: 760px; max-width: 100%;
+    max-height: 88vh;
+    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex; align-items: center;
+    background: var(--paper-tint);
+  }
+  .modal-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 18px;
+    flex: 1;
+    color: var(--ink);
+  }
+  .modal-title em {
+    font-style: italic;
+    color: var(--accent-brick);
+    margin-right: 4px;
+  }
+  .modal-close {
+    appearance: none; border: none; background: transparent;
+    font-size: 22px; cursor: pointer;
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    color: var(--ink-mute);
+    line-height: 1;
+  }
+  .modal-close:hover { background: var(--paper-edge); color: var(--ink); }
+  .modal-body {
+    padding: 16px 20px;
+    flex: 1;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .modal-body textarea {
+    flex: 1;
+    min-height: 320px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.55;
+    border: 1px solid var(--rule);
+    background: var(--paper-tint);
+    color: var(--ink-soft);
+    padding: 12px 14px;
+    border-radius: var(--r-sm);
+    resize: vertical;
+    white-space: pre;
+    overflow: auto;
+  }
+  .modal-meta {
+    font-size: 11px;
+    color: var(--ink-mute);
+    line-height: 1.6;
+    font-family: var(--font-mono);
+    letter-spacing: .02em;
+  }
+  .modal-meta b {
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .modal-actions {
+    padding: 12px 20px;
+    border-top: 1px solid var(--rule-soft);
+    display: flex; gap: 8px;
+    background: var(--paper-tint);
+  }
+  .modal-actions .ghost-spacer { flex: 1; }
+
   /* Responsive small screens */
   @media (max-width: 880px) {
     .app {
@@ -824,6 +911,29 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-backdrop" id="html-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title"><em>HTML</em>代碼預覽</div>
+      <button class="modal-close" id="modal-close" type="button">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="html-output" readonly spellcheck="false"></textarea>
+      <div class="modal-meta">
+        <b>標籤限制：</b>div · span · p · hr · b · i · img · br　
+        <b>樣式：</b>全部 inline style　
+        <b>單位：</b>font-size / padding / margin = rem，其餘 px / %
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="btn-copy" type="button">複製到剪貼簿</button>
+      <button class="btn" id="btn-download" type="button">下載為 .html</button>
+      <div class="ghost-spacer"></div>
+      <button class="btn ghost" id="btn-close-modal" type="button">關閉</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* =================================================================
@@ -1539,91 +1649,170 @@ function exportJson() {
   toast("已輸出 JSON");
 }
 
-/* ----- Build standalone HTML ----- */
-function buildStandaloneHtml() {
+/* ----- Build constrained HTML snippet -----
+   Tag whitelist: div, span, p, hr, b, i, img, br
+   Inline styles only, no <style>, no <svg>
+   Units: rem for font-size/padding/margin/text-shadow; otherwise px or %
+   Lines drawn as rotated divs; arrows as CSS triangles via border trick.
+   Length expressed in % of container width so output scales responsively. */
+function buildHtmlSnippet() {
   const W = state.image.naturalWidth;
   const H = state.image.naturalHeight;
-  const aspect = (H / W * 100).toFixed(4);
+  // Trim float artifacts: 65.00000000001 → 65, 65.123456 → 65.1235
+  const fmt = (n) => Number(Number(n).toFixed(4)).toString();
 
-  // Build SVG markup for leaders (viewBox uses image pixel coords)
-  let leaderSvg = "";
+  const parts = [];
+
+  // Outer container: shrink-to-fit on wide parents, scale-down on narrow parents
+  parts.push(`<div style="position:relative;display:inline-block;width:${W}px;max-width:100%;">`);
+
+  // Image
+  parts.push(`<img src="${state.image.src}" alt="" style="display:block;width:100%;height:auto;">`);
+
+  // Leaders first (so boxes paint on top)
   state.boxes.forEach(b => {
     if (!b.leader) return;
-    const cx = (b.x + b.width / 2) / 100 * W;
-    const cy = (b.y + b.height / 2) / 100 * H;
-    const ex = b.leader.x / 100 * W;
-    const ey = b.leader.y / 100 * H;
-    const x1 = b.x / 100 * W, y1 = b.y / 100 * H;
-    const x2 = (b.x + b.width) / 100 * W, y2 = (b.y + b.height) / 100 * H;
-    const anchor = lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2);
-    let line = `<line x1="${anchor.x}" y1="${anchor.y}" x2="${ex}" y2="${ey}" stroke="${b.leader.color}" stroke-width="${b.leader.width}" stroke-linecap="round"`;
+    // Compute everything in image-pixel space, then map back
+    const ax_px = (b.x + b.width / 2) / 100 * W;
+    const ay_px = (b.y + b.height / 2) / 100 * H;
+    const ex_px = b.leader.x / 100 * W;
+    const ey_px = b.leader.y / 100 * H;
+    const x1_px = b.x / 100 * W, y1_px = b.y / 100 * H;
+    const x2_px = (b.x + b.width) / 100 * W, y2_px = (b.y + b.height) / 100 * H;
+    const anchor_px = lineRectIntersect(ax_px, ay_px, ex_px, ey_px, x1_px, y1_px, x2_px, y2_px);
+
+    const anchor_x_pct = anchor_px.x / W * 100;
+    const anchor_y_pct = anchor_px.y / H * 100;
+    const dx_px = ex_px - anchor_px.x;
+    const dy_px = ey_px - anchor_px.y;
+    const len_px = Math.sqrt(dx_px * dx_px + dy_px * dy_px);
+    // Express length as % of container width so the line scales with the container
+    const len_pct = len_px / W * 100;
+    const angle_deg = Math.atan2(dy_px, dx_px) * 180 / Math.PI;
+
+    const stroke = b.leader.width;
+    const halfStroke = stroke / 2;
+
+    // Line: pivot at anchor (left edge, vertical mid). Top calc shifts up by halfStroke
+    // so the centerline coincides with the anchor coordinate exactly.
+    parts.push(
+      `<div style="position:absolute;` +
+      `left:${fmt(anchor_x_pct)}%;` +
+      `top:calc(${fmt(anchor_y_pct)}% - ${fmt(halfStroke)}px);` +
+      `width:${fmt(len_pct)}%;` +
+      `height:${stroke}px;` +
+      `background:${b.leader.color};` +
+      `transform-origin:0 ${fmt(halfStroke)}px;` +
+      `transform:rotate(${fmt(angle_deg)}deg);` +
+      `"></div>`
+    );
+
+    // Arrow: CSS triangle (border trick), tip at endpoint, rotated to match line
     if (b.leader.arrow) {
-      line += ` marker-end="url(#arrow-${b.id})"`;
-    }
-    line += " />";
-    leaderSvg += line;
-  });
-  let defs = "";
-  const arrowIds = new Set();
-  state.boxes.forEach(b => {
-    if (b.leader && b.leader.arrow && !arrowIds.has(b.id)) {
-      arrowIds.add(b.id);
-      defs += `<marker id="arrow-${b.id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M 0 0 L 10 5 L 0 10 z" fill="${b.leader.color}"/></marker>`;
+      const arrowLen = stroke * 4;       // length along the line
+      const arrowHalf = stroke * 2;      // half-width perpendicular
+      parts.push(
+        `<div style="position:absolute;` +
+        `left:calc(${fmt(b.leader.x)}% - ${arrowLen}px);` +
+        `top:calc(${fmt(b.leader.y)}% - ${arrowHalf}px);` +
+        `width:0;height:0;` +
+        `border-top:${arrowHalf}px solid transparent;` +
+        `border-bottom:${arrowHalf}px solid transparent;` +
+        `border-left:${arrowLen}px solid ${b.leader.color};` +
+        `transform-origin:${arrowLen}px ${arrowHalf}px;` +
+        `transform:rotate(${fmt(angle_deg)}deg);` +
+        `"></div>`
+      );
     }
   });
 
-  // Boxes as absolutely positioned divs
-  let boxHtml = "";
+  // Annotation boxes
   state.boxes.forEach(b => {
     const bg = hexToRgba(b.bgColor, b.bgOpacity);
-    let inner = "";
-    if (b.title !== null) inner += `<div class="t">${escapeHtml(b.title)}</div>`;
-    inner += `<div class="b">${escapeHtml(b.body)}</div>`;
-    boxHtml += `<div class="box" style="left:${b.x}%;top:${b.y}%;width:${b.width}%;height:${b.height}%;background:${bg};border:${b.borderWidth}px solid ${b.borderColor};border-radius:${b.borderRadius}px;color:${b.textColor};font-size:${b.fontSize}px;">${inner}</div>`;
+    const fontRem = b.fontSize / 16; // 16px base = 1rem
+
+    let content = "";
+    if (b.title !== null) {
+      content += `<p style="margin:0 0 0.25rem 0;line-height:140%;"><b>${escapeHtml(b.title)}</b></p>`;
+    }
+    const bodyHtml = escapeHtml(b.body).replace(/\n/g, "<br>");
+    content += `<p style="margin:0;line-height:140%;">${bodyHtml}</p>`;
+
+    parts.push(
+      `<div style="position:absolute;` +
+      `left:${fmt(b.x)}%;` +
+      `top:${fmt(b.y)}%;` +
+      `width:${fmt(b.width)}%;` +
+      `height:${fmt(b.height)}%;` +
+      `background:${bg};` +
+      `border:${b.borderWidth}px solid ${b.borderColor};` +
+      `border-radius:${b.borderRadius}px;` +
+      `color:${b.textColor};` +
+      `font-size:${fmt(fontRem)}rem;` +
+      `padding:0.5rem 0.625rem;` +
+      `box-sizing:border-box;` +
+      `overflow:hidden;` +
+      `">${content}</div>`
+    );
   });
 
-  return `<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Annotated Image</title>
-<style>
-  body { margin: 0; padding: 24px; background: #f5f1e8; display: flex; align-items: flex-start; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif; }
-  .frame { position: relative; width: 100%; max-width: ${W}px; box-shadow: 0 8px 32px rgba(0,0,0,.12); }
-  .stage { position: relative; width: 100%; padding-bottom: ${aspect}%; line-height: 0; }
-  .stage > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-  .box { position: absolute; box-sizing: border-box; overflow: hidden; line-height: 1.4; }
-  .box .t { font-weight: 600; margin-bottom: 4px; line-height: 1.25; }
-  .box .b { white-space: pre-wrap; word-wrap: break-word; }
-  .box > .t, .box > .b { padding: 0 10px; }
-  .box > .t { padding-top: 8px; }
-  .box > .b:not(:first-child) { padding-bottom: 8px; }
-  .box > .b:first-child { padding: 8px 10px; }
-</style>
-</head>
-<body>
-  <div class="frame">
-    <div class="stage">
-      <img src="${state.image.src}" alt="">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <defs>${defs}</defs>
-        ${leaderSvg}
-      </svg>
-      ${boxHtml}
-    </div>
-  </div>
-</body>
-</html>`;
+  parts.push("</div>");
+  return parts.join("\n");
 }
 
 function exportHtml() {
-  const html = buildStandaloneHtml();
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  downloadBlob(blob, `annotation-${Date.now()}.html`);
-  toast("已輸出 HTML");
+  const snippet = buildHtmlSnippet();
+  el("html-output").value = snippet;
+  el("html-modal").style.display = "flex";
+  // Auto-select for quick copy
+  setTimeout(() => el("html-output").select(), 50);
 }
+
+/* ----- HTML modal handlers ----- */
+function closeHtmlModal() {
+  el("html-modal").style.display = "none";
+}
+el("modal-close").addEventListener("click", closeHtmlModal);
+el("btn-close-modal").addEventListener("click", closeHtmlModal);
+// Click backdrop (but not modal contents) to close
+el("html-modal").addEventListener("click", (e) => {
+  if (e.target === el("html-modal")) closeHtmlModal();
+});
+// Esc to close (only when modal is visible)
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && el("html-modal").style.display === "flex") {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    closeHtmlModal();
+  }
+}, true);
+
+el("btn-copy").addEventListener("click", async () => {
+  const ta = el("html-output");
+  ta.select();
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(ta.value);
+    } else {
+      document.execCommand("copy");
+    }
+    toast("已複製到剪貼簿");
+  } catch (err) {
+    // Fallback to execCommand
+    try {
+      document.execCommand("copy");
+      toast("已複製");
+    } catch {
+      toast("複製失敗，請手動選取");
+    }
+  }
+});
+
+el("btn-download").addEventListener("click", () => {
+  const blob = new Blob([el("html-output").value], { type: "text/html;charset=utf-8" });
+  downloadBlob(blob, `annotation-${Date.now()}.html`);
+  toast("已下載");
+});
 
 /* ----- SVG export ----- */
 function buildSvg() {
@@ -1894,7 +2083,7 @@ renderStage();
 window.__editor = {
   state, renderStage, addBox, deleteSelected, duplicateSelected,
   updateSelected, deselect, selectBox,
-  buildStandaloneHtml, buildSvg, hexToRgba, lineRectIntersect,
+  buildHtmlSnippet, buildSvg, hexToRgba, lineRectIntersect,
 };
 </script>
 </body>
