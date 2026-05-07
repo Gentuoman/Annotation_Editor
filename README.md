@@ -1,5 +1,7 @@
 # 圖像說明框編輯器 ｜ Image Annotation Editor
 
+--> 網址 https://gentuoman.github.io/Image-Annotation-Editor/
+
 為圖片加上可拖曳的說明框，輸出 HTML / SVG / PNG / JPG / JSON 五種格式。單檔自包含，無外部相依（除了 Google Fonts），可直接放上 GitHub Pages。
 
 ---
@@ -59,9 +61,6 @@
   ...更多說明框
 </div>
 ```
-
-網址 `https://gentuoman.github.io/Annotation_Editor/`
-
 ---
 
 ## 注意事項
