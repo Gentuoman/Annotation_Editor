@@ -4,6 +4,8 @@
 
 完成後可以輸出成幾種格式：直接貼進網站的 HTML 代碼、給海報用的高解析向量檔（SVG）、貼 LINE / Facebook 用的圖檔（PNG / JPG），以及之後還想修改用的設定檔（JSON）。
 
+網址 https://gentuoman.github.io/Image-Annotation-Editor/
+
 ---
 
 ## 30 秒上手
