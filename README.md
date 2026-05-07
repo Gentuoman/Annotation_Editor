@@ -1,4 +1,4 @@
-# 圖像說明框編輯器 ｜ Annotation Editor
+# 圖像說明框編輯器 ｜ Image Annotation Editor
 
 為圖片加上可拖曳的說明框，輸出 HTML / SVG / PNG / JPG / JSON 五種格式。單檔自包含，無外部相依（除了 Google Fonts），可直接放上 GitHub Pages。
 
@@ -13,7 +13,7 @@
 - 引線可選：每個框獨立決定要不要從框邊指向圖上某點，端點可拖曳，可開關箭頭
 
 **底圖來源（兩種都支援）**
-- **上傳檔案**：圖片以 base64 內嵌進輸出檔，完全離線可用
+- **上傳檔案**：圖片以 base64 內嵌進輸出檔，離線可用
 - **貼網址**：HTML / SVG 輸出參照原網址（檔案小，但需網路）。PNG / JPG 輸出需要圖片來源允許 CORS
 
 **輸出格式**
@@ -60,29 +60,7 @@
 </div>
 ```
 
-**為什麼不用 `<svg>` 畫線**：SVG 不在白名單裡。改用 `transform: rotate()` 旋轉的 div 畫線、用 border trick 做箭頭，純 CSS 實作。引線長度用 `%` 表示，所以容器縮放時引線也會等比縮放。
-
----
-
-## 部署到 GitHub Pages
-
-```bash
-# 1. 建一個新 repo，把 index.html 放到 root
-git init
-git add index.html README.md
-git commit -m "init annotation editor"
-git remote add origin https://github.com/<你的帳號>/<repo-name>.git
-git push -u origin main
-
-# 2. 到 repo Settings → Pages
-#    Source: Deploy from a branch
-#    Branch: main / (root)
-#    儲存後等一兩分鐘
-```
-
-完成後網址是 `https://gentuoman.github.io/Annotation_Editor/`
-
-> 也可以丟到任何靜態主機（Netlify / Cloudflare Pages / 自己的伺服器），單純把 `index.html` 放到 web root 即可。
+網址 `https://gentuoman.github.io/Annotation_Editor/`
 
 ---
 
@@ -93,12 +71,4 @@ git push -u origin main
 - **HTML 代碼貼進 CMS**：產生的 snippet 每個主要元素一行，多數 CMS 編輯器在「原始碼」模式下可正常處理。若 CMS 用 wysiwyg 自動排版，建議切到原始碼／HTML 模式貼上。
 - **字型**：UI 用 Google Fonts (Newsreader + IBM Plex Sans/Mono + Noto Sans/Serif TC)，第一次載入需要連網，之後瀏覽器會快取。
 
----
 
-## 結構
-
-```
-annotation-editor/
-├── index.html    ← 全部都在這一個檔案（HTML + CSS + JS）
-└── README.md
-```
