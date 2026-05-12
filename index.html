@@ -454,6 +454,32 @@
     color: var(--paper);
   }
 
+  /* Alignment row (5 buttons: left/center/right/justify/distribute) */
+  .align-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+  .align-row button {
+    appearance: none;
+    border: none;
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    padding: 6px 4px;
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .align-row button:last-child { border-right: none; }
+  .align-row button:hover { background: var(--paper-edge); }
+  .align-row button.active {
+    background: var(--accent-blue);
+    color: var(--paper);
+  }
+
   /* Box list */
   .box-list {
     display: flex; flex-direction: column; gap: 4px;
@@ -583,6 +609,39 @@
     border: none;
     border-top: 1px solid var(--rule-soft);
     margin: 4px 0;
+  }
+  .menu-row {
+    display: grid;
+    grid-template-columns: 1fr 60px auto;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  .menu-row-label {
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .menu-row-suffix {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  .menu-row input[type="number"] {
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 4px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    border-radius: var(--r-xs);
+    width: 100%;
+    color: var(--ink);
+  }
+  .menu-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    padding: 0 10px 6px 10px;
+    text-align: right;
   }
 
   /* Toast */
@@ -735,6 +794,13 @@
         <div class="menu" id="export-menu">
           <button data-export="html">HTML <span class="ext">.html</span></button>
           <button data-export="svg">SVG <span class="ext">.svg</span></button>
+          <hr>
+          <div class="menu-row" id="raster-scale-row">
+            <span class="menu-row-label">PNG / JPG 縮放</span>
+            <input type="number" id="raster-scale" value="100" min="10" max="400" step="10">
+            <span class="menu-row-suffix">%</span>
+          </div>
+          <div class="menu-hint" id="raster-dim-hint">— × — px</div>
           <button data-export="png">PNG <span class="ext">.png</span></button>
           <button data-export="jpg">JPG <span class="ext">.jpg</span></button>
           <hr>
@@ -783,6 +849,10 @@
         </div>
         <button class="btn" id="btn-load-url" style="width:100%">載入</button>
       </div>
+      <div id="image-info" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--rule-soft);">
+        <div style="font-size:11px;color:var(--ink-mute);margin-bottom:6px;font-family:var(--font-mono);" id="image-dim">— × — px</div>
+        <button class="btn ghost" id="btn-clear-image" style="width:100%">清除目前圖片</button>
+      </div>
     </div>
 
     <!-- Box list (when no selection) -->
@@ -802,14 +872,47 @@
         <label for="has-title">顯示標題列</label>
       </div>
 
-      <div class="field-stack" id="title-field" style="display:none">
-        <label>標題</label>
-        <input type="text" id="title-input" placeholder="標題文字">
+      <div id="title-fields" style="display:none">
+        <div class="field-stack">
+          <label>標題</label>
+          <input type="text" id="title-input" placeholder="標題文字">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>標題色</label>
+            <input type="color" id="title-color" value="#1B1814">
+          </div>
+          <div class="field">
+            <label>標題字級 (px)</label>
+            <input type="number" id="title-font-size" min="8" max="96" value="14">
+          </div>
+        </div>
+        <div class="field-stack">
+          <label>標題對齊</label>
+          <div class="align-row" data-target="title">
+            <button type="button" data-align="left">左</button>
+            <button type="button" data-align="center">中</button>
+            <button type="button" data-align="right">右</button>
+            <button type="button" data-align="justify">兩端</button>
+            <button type="button" data-align="distribute">分散</button>
+          </div>
+        </div>
       </div>
 
       <div class="field-stack">
         <label>內文</label>
         <textarea id="body-input" placeholder="說明文字（支援換行）"></textarea>
+      </div>
+
+      <div class="field-stack">
+        <label>內文對齊</label>
+        <div class="align-row" data-target="body">
+          <button type="button" data-align="left">左</button>
+          <button type="button" data-align="center">中</button>
+          <button type="button" data-align="right">右</button>
+          <button type="button" data-align="justify">兩端</button>
+          <button type="button" data-align="distribute">分散</button>
+        </div>
       </div>
 
       <h3 style="margin-top:18px">外觀</h3>
@@ -827,18 +930,29 @@
 
       <div class="field-row">
         <div class="field">
-          <label>文字色</label>
+          <label>內文色</label>
           <input type="color" id="text-color" value="#1B1814">
         </div>
         <div class="field">
-          <label>字級 (px)</label>
+          <label>內文字級 (px)</label>
           <input type="number" id="font-size" min="8" max="72" value="14">
         </div>
       </div>
 
       <h3 style="margin-top:18px">框線</h3>
 
-      <div class="field-row">
+      <div class="field-stack">
+        <label>線型</label>
+        <select id="border-style">
+          <option value="none">無</option>
+          <option value="solid" selected>實線</option>
+          <option value="dashed">虛線</option>
+          <option value="dotted">點線</option>
+          <option value="double">雙線</option>
+        </select>
+      </div>
+
+      <div class="field-row" id="border-color-width-row">
         <div class="field">
           <label>顏色</label>
           <input type="color" id="border-color" value="#1B1814">
@@ -960,13 +1074,28 @@ function defaultBox(stage) {
     bgOpacity: 95,
     borderColor: "#1B1814",
     borderWidth: 1,
+    borderStyle: "solid", // none | solid | dashed | dotted | double
     borderRadius: 4,
     textColor: "#1B1814",
     fontSize: 14,
-    title: null, // null = no title
+    title: null,           // null = no title
+    titleFontSize: 14,     // px; defaults to fontSize when title is enabled
+    titleColor: "#1B1814",
+    titleAlign: "left",    // left | center | right | justify | distribute
     body: "說明文字",
-    leader: null, // { x, y, color, width, arrow }
+    bodyAlign: "left",
+    leader: null,          // { x, y, color, width, arrow }
   };
+}
+
+// Backward-fill missing fields on boxes loaded from older saves
+function normalizeBox(b) {
+  if (!("borderStyle" in b)) b.borderStyle = "solid";
+  if (!("titleFontSize" in b)) b.titleFontSize = b.fontSize;
+  if (!("titleColor" in b)) b.titleColor = b.textColor;
+  if (!("titleAlign" in b)) b.titleAlign = "left";
+  if (!("bodyAlign" in b)) b.bodyAlign = "left";
+  return b;
 }
 
 /* =================================================================
@@ -1040,7 +1169,7 @@ function restore() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.image) state.image = data.image;
-    if (Array.isArray(data.boxes)) state.boxes = data.boxes;
+    if (Array.isArray(data.boxes)) state.boxes = data.boxes.map(normalizeBox);
     if (data.nextId) state.nextId = data.nextId;
   } catch (err) {
     console.warn("Restore failed:", err);
@@ -1101,6 +1230,21 @@ el("btn-load-url").addEventListener("click", () => {
   loadImage(url, "url");
 });
 
+el("btn-clear-image").addEventListener("click", () => {
+  if (!state.image) return;
+  if (state.boxes.length > 0) {
+    if (!confirm("清除圖片會一併清除所有說明框，確定要繼續嗎？")) return;
+  }
+  state.image = null;
+  state.boxes = [];
+  state.selectedId = null;
+  el("file-input").value = "";
+  el("url-input").value = "";
+  persist();
+  renderStage();
+  toast("已清空");
+});
+
 /* Source switcher */
 document.querySelectorAll("#src-seg button").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -1125,6 +1269,7 @@ function renderStage() {
     emptyHint.style.display = "flex";
     stage.style.width = "";
     stage.style.height = "";
+    updatePanel();
     return;
   }
 
@@ -1166,6 +1311,12 @@ function renderStage() {
   updatePanel();
 }
 
+// CSS text-align mapping for "distribute" → also sets text-align-last
+function alignToCss(align) {
+  if (align === "distribute") return { textAlign: "justify", textAlignLast: "justify" };
+  return { textAlign: align, textAlignLast: "" };
+}
+
 function renderBox(b) {
   const div = document.createElement("div");
   div.className = "box" + (b.id === state.selectedId ? " selected" : "");
@@ -1175,16 +1326,25 @@ function renderBox(b) {
   div.style.width = b.width + "%";
   div.style.height = b.height + "%";
   div.style.background = hexToRgba(b.bgColor, b.bgOpacity);
-  div.style.border = `${b.borderWidth}px solid ${b.borderColor}`;
+  // Border style: "none" disables border entirely
+  if (b.borderStyle === "none" || b.borderWidth === 0) {
+    div.style.border = "none";
+  } else {
+    div.style.border = `${b.borderWidth}px ${b.borderStyle} ${b.borderColor}`;
+  }
   div.style.borderRadius = b.borderRadius + "px";
   div.style.color = b.textColor;
   div.style.fontSize = b.fontSize + "px";
 
   let inner = '<div class="box-content">';
   if (b.title !== null) {
-    inner += `<div class="box-title">${escapeHtml(b.title)}</div>`;
+    const a = alignToCss(b.titleAlign);
+    const tStyle = `font-size:${b.titleFontSize}px;color:${b.titleColor};text-align:${a.textAlign};${a.textAlignLast ? "text-align-last:" + a.textAlignLast + ";" : ""}`;
+    inner += `<div class="box-title" style="${tStyle}">${escapeHtml(b.title)}</div>`;
   }
-  inner += `<div class="box-body">${escapeHtml(b.body)}</div>`;
+  const bodyA = alignToCss(b.bodyAlign);
+  const bStyle = `text-align:${bodyA.textAlign};${bodyA.textAlignLast ? "text-align-last:" + bodyA.textAlignLast + ";" : ""}`;
+  inner += `<div class="box-body" style="${bStyle}">${escapeHtml(b.body)}</div>`;
   inner += "</div>";
   div.innerHTML = inner;
 
@@ -1301,6 +1461,17 @@ function lineRectIntersect(cx, cy, ex, ey, x1, y1, x2, y2) {
    PANEL UPDATE
    ================================================================= */
 function updatePanel() {
+  // Image info (dimensions + clear button)
+  if (state.image) {
+    el("image-info").style.display = "block";
+    el("image-dim").textContent = `${state.image.naturalWidth} × ${state.image.naturalHeight} px · ${state.image.mode === "url" ? "網址" : "上傳"}`;
+  } else {
+    el("image-info").style.display = "none";
+  }
+
+  // Raster export hint
+  updateRasterDimHint();
+
   // Box list
   boxCount.textContent = state.boxes.length;
   if (state.boxes.length === 0) {
@@ -1337,17 +1508,26 @@ function updatePanel() {
   sectionList.style.display = "block";
 
   el("has-title").checked = sel.title !== null;
-  el("title-field").style.display = sel.title !== null ? "block" : "none";
-  el("title-input").value = sel.title || "";
+  el("title-fields").style.display = sel.title !== null ? "block" : "none";
+  if (sel.title !== null) {
+    el("title-input").value = sel.title || "";
+    el("title-color").value = sel.titleColor;
+    el("title-font-size").value = sel.titleFontSize;
+    syncAlignRow("title", sel.titleAlign);
+  }
+
   el("body-input").value = sel.body || "";
+  syncAlignRow("body", sel.bodyAlign);
 
   el("bg-color").value = sel.bgColor;
   el("bg-opacity").value = sel.bgOpacity;
   el("text-color").value = sel.textColor;
   el("font-size").value = sel.fontSize;
 
+  el("border-style").value = sel.borderStyle;
   el("border-color").value = sel.borderColor;
   el("border-width").value = sel.borderWidth;
+  el("border-color-width-row").style.display = sel.borderStyle === "none" ? "none" : "";
   el("border-radius").value = sel.borderRadius;
   el("radius-display").textContent = sel.borderRadius + " px";
 
@@ -1363,6 +1543,25 @@ function updatePanel() {
   el("pos-y").value = sel.y.toFixed(1);
   el("size-w").value = sel.width.toFixed(1);
   el("size-h").value = sel.height.toFixed(1);
+}
+
+function syncAlignRow(target, value) {
+  document.querySelectorAll(`.align-row[data-target="${target}"] button`).forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.align === value);
+  });
+}
+
+function updateRasterDimHint() {
+  const hint = el("raster-dim-hint");
+  if (!hint) return;
+  if (!state.image) {
+    hint.textContent = "— × — px";
+    return;
+  }
+  const scale = +(el("raster-scale")?.value || 100) / 100;
+  const w = Math.round(state.image.naturalWidth * scale);
+  const h = Math.round(state.image.naturalHeight * scale);
+  hint.textContent = `${w} × ${h} px`;
 }
 
 /* =================================================================
@@ -1424,16 +1623,53 @@ function updateSelected(patch) {
 }
 
 el("has-title").addEventListener("change", (e) => {
-  updateSelected({ title: e.target.checked ? "" : null });
+  if (e.target.checked) {
+    const sel = state.boxes.find(b => b.id === state.selectedId);
+    if (!sel) return;
+    // Seed title styling from box defaults if turning on
+    updateSelected({
+      title: "",
+      titleFontSize: sel.titleFontSize ?? sel.fontSize,
+      titleColor: sel.titleColor ?? sel.textColor,
+      titleAlign: sel.titleAlign ?? "left",
+    });
+  } else {
+    updateSelected({ title: null });
+  }
 });
 el("title-input").addEventListener("input", (e) => updateSelected({ title: e.target.value }));
+el("title-color").addEventListener("input", (e) => updateSelected({ titleColor: e.target.value }));
+el("title-font-size").addEventListener("input", (e) => updateSelected({ titleFontSize: +e.target.value }));
 el("body-input").addEventListener("input", (e) => updateSelected({ body: e.target.value }));
+
+// Alignment row buttons (delegated)
+document.querySelectorAll(".align-row").forEach(row => {
+  row.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const target = row.dataset.target; // "title" or "body"
+    const value = btn.dataset.align;
+    const field = target === "title" ? "titleAlign" : "bodyAlign";
+    updateSelected({ [field]: value });
+  });
+});
 
 el("bg-color").addEventListener("input", (e) => updateSelected({ bgColor: e.target.value }));
 el("bg-opacity").addEventListener("input", (e) => updateSelected({ bgOpacity: +e.target.value }));
 el("text-color").addEventListener("input", (e) => updateSelected({ textColor: e.target.value }));
 el("font-size").addEventListener("input", (e) => updateSelected({ fontSize: +e.target.value }));
 
+el("border-style").addEventListener("change", (e) => {
+  const newStyle = e.target.value;
+  const sel = state.boxes.find(b => b.id === state.selectedId);
+  if (!sel) return;
+  const patch = { borderStyle: newStyle };
+  // "double" needs >= 3px to render visibly; bump width if currently too thin
+  if (newStyle === "double" && sel.borderWidth < 3) patch.borderWidth = 3;
+  // Switching from "none" to a real style with 0 width: give them a 1px starter
+  if (newStyle !== "none" && sel.borderWidth === 0) patch.borderWidth = 1;
+  updateSelected(patch);
+});
 el("border-color").addEventListener("input", (e) => updateSelected({ borderColor: e.target.value }));
 el("border-width").addEventListener("input", (e) => updateSelected({ borderWidth: +e.target.value }));
 el("border-radius").addEventListener("input", (e) => {
@@ -1607,14 +1843,20 @@ exportBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   exportMenu.classList.toggle("open");
 });
-document.addEventListener("click", () => exportMenu.classList.remove("open"));
+// Close menu only when click is outside the menu and not on the trigger
+document.addEventListener("click", (e) => {
+  if (exportMenu.contains(e.target) || e.target === exportBtn) return;
+  exportMenu.classList.remove("open");
+});
 exportMenu.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
-  if (!btn) return;
+  if (!btn) return; // clicks on the scale input pass through and keep menu open
   const fmt = btn.dataset.export;
   exportMenu.classList.remove("open");
   doExport(fmt);
 });
+// Live-update raster output dimensions hint
+el("raster-scale").addEventListener("input", updateRasterDimHint);
 
 function doExport(fmt) {
   if (!state.image && fmt !== "json") {
@@ -1729,14 +1971,28 @@ function buildHtmlSnippet() {
   // Annotation boxes
   state.boxes.forEach(b => {
     const bg = hexToRgba(b.bgColor, b.bgOpacity);
-    const fontRem = b.fontSize / 16; // 16px base = 1rem
+    const bodyFontRem = b.fontSize / 16;
+    const titleFontRem = (b.titleFontSize ?? b.fontSize) / 16;
 
+    // Border: "none" → omit; otherwise full shorthand
+    const borderCss = (b.borderStyle === "none" || b.borderWidth === 0)
+      ? "border:none;"
+      : `border:${b.borderWidth}px ${b.borderStyle} ${b.borderColor};`;
+
+    // Title styling
     let content = "";
     if (b.title !== null) {
-      content += `<p style="margin:0 0 0.25rem 0;line-height:140%;"><b>${escapeHtml(b.title)}</b></p>`;
+      const tA = alignToCss(b.titleAlign);
+      const tAlignCss = `text-align:${tA.textAlign};` + (tA.textAlignLast ? `text-align-last:${tA.textAlignLast};` : "");
+      content +=
+        `<p style="margin:0 0 0.25rem 0;line-height:140%;` +
+        `font-size:${fmt(titleFontRem)}rem;color:${b.titleColor};${tAlignCss}` +
+        `"><b>${escapeHtml(b.title)}</b></p>`;
     }
     const bodyHtml = escapeHtml(b.body).replace(/\n/g, "<br>");
-    content += `<p style="margin:0;line-height:140%;">${bodyHtml}</p>`;
+    const bA = alignToCss(b.bodyAlign);
+    const bAlignCss = `text-align:${bA.textAlign};` + (bA.textAlignLast ? `text-align-last:${bA.textAlignLast};` : "");
+    content += `<p style="margin:0;line-height:140%;${bAlignCss}">${bodyHtml}</p>`;
 
     parts.push(
       `<div style="position:absolute;` +
@@ -1745,10 +2001,10 @@ function buildHtmlSnippet() {
       `width:${fmt(b.width)}%;` +
       `height:${fmt(b.height)}%;` +
       `background:${bg};` +
-      `border:${b.borderWidth}px solid ${b.borderColor};` +
+      borderCss +
       `border-radius:${b.borderRadius}px;` +
       `color:${b.textColor};` +
-      `font-size:${fmt(fontRem)}rem;` +
+      `font-size:${fmt(bodyFontRem)}rem;` +
       `padding:0.5rem 0.625rem;` +
       `box-sizing:border-box;` +
       `overflow:hidden;` +
@@ -1844,21 +2100,47 @@ function buildSvg() {
     leaderSvg += line;
   });
 
-  // Boxes as foreignObject (preserves text wrapping); include simple style
+  // Boxes: use a single foreignObject so the browser handles border-style,
+  // background, text alignment, and per-element font sizes natively.
   let boxSvg = "";
   state.boxes.forEach(b => {
     const bg = hexToRgba(b.bgColor, b.bgOpacity);
     const x = b.x / 100 * W, y = b.y / 100 * H;
     const w = b.width / 100 * W, h = b.height / 100 * H;
-    // Use rect + foreignObject for text
-    boxSvg += `<g>`;
-    boxSvg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${bg}" stroke="${b.borderColor}" stroke-width="${b.borderWidth}" rx="${b.borderRadius}" ry="${b.borderRadius}" />`;
-    let textHtml = `<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif; color:${b.textColor}; font-size:${b.fontSize}px; line-height:1.4; padding:8px 10px; box-sizing:border-box; height:100%; overflow:hidden;">`;
-    if (b.title !== null) textHtml += `<div style="font-weight:600;margin-bottom:4px;line-height:1.25;">${escapeXml(b.title)}</div>`;
-    textHtml += `<div style="white-space:pre-wrap;word-wrap:break-word;">${escapeXml(b.body)}</div>`;
+    const borderCss = (b.borderStyle === "none" || b.borderWidth === 0)
+      ? "border:none;"
+      : `border:${b.borderWidth}px ${b.borderStyle} ${b.borderColor};`;
+    const fontFamily = `-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif`;
+
+    let textHtml =
+      `<div xmlns="http://www.w3.org/1999/xhtml" style="` +
+      `width:100%;height:100%;` +
+      `background:${bg};` +
+      borderCss +
+      `border-radius:${b.borderRadius}px;` +
+      `color:${b.textColor};` +
+      `font-family:${fontFamily};` +
+      `font-size:${b.fontSize}px;` +
+      `line-height:1.4;` +
+      `padding:8px 10px;` +
+      `box-sizing:border-box;` +
+      `overflow:hidden;` +
+      `">`;
+
+    if (b.title !== null) {
+      const tA = alignToCss(b.titleAlign);
+      const tCss = `font-weight:600;margin-bottom:4px;line-height:1.25;` +
+                   `font-size:${b.titleFontSize}px;color:${b.titleColor};` +
+                   `text-align:${tA.textAlign};` + (tA.textAlignLast ? `text-align-last:${tA.textAlignLast};` : "");
+      textHtml += `<div style="${tCss}">${escapeXml(b.title)}</div>`;
+    }
+    const bA = alignToCss(b.bodyAlign);
+    const bCss = `white-space:pre-wrap;word-wrap:break-word;` +
+                 `text-align:${bA.textAlign};` + (bA.textAlignLast ? `text-align-last:${bA.textAlignLast};` : "");
+    textHtml += `<div style="${bCss}">${escapeXml(b.body)}</div>`;
     textHtml += `</div>`;
+
     boxSvg += `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}">${textHtml}</foreignObject>`;
-    boxSvg += `</g>`;
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -1881,9 +2163,16 @@ function exportSvg() {
 function exportRaster(format) {
   const W = state.image.naturalWidth;
   const H = state.image.naturalHeight;
+  const scale = Math.max(0.1, Math.min(4, +(el("raster-scale").value || 100) / 100));
+  const cw = Math.round(W * scale);
+  const ch = Math.round(H * scale);
+
   const canvas = document.createElement("canvas");
-  canvas.width = W; canvas.height = H;
+  canvas.width = cw;
+  canvas.height = ch;
   const ctx = canvas.getContext("2d");
+  // All drawing uses original W/H coords; scale transform handles the rest
+  ctx.scale(scale, scale);
 
   // Background for JPG (no transparency)
   if (format === "jpg") {
@@ -1896,16 +2185,13 @@ function exportRaster(format) {
   img.crossOrigin = "anonymous";
   img.onload = () => {
     ctx.drawImage(img, 0, 0, W, H);
-    // Draw boxes
     state.boxes.forEach(b => drawBoxOnCanvas(ctx, b, W, H));
-    // Try to export
     try {
       const mime = format === "jpg" ? "image/jpeg" : "image/png";
       const dataUrl = canvas.toDataURL(mime, format === "jpg" ? 0.92 : undefined);
-      // dataURL → blob
       fetch(dataUrl).then(r => r.blob()).then(blob => {
-        downloadBlob(blob, `annotation-${Date.now()}.${format === "jpg" ? "jpg" : "png"}`);
-        toast(`已輸出 ${format.toUpperCase()}`);
+        downloadBlob(blob, `annotation-${cw}x${ch}-${Date.now()}.${format === "jpg" ? "jpg" : "png"}`);
+        toast(`已輸出 ${format.toUpperCase()}（${cw} × ${ch}）`);
       });
     } catch (err) {
       toast("輸出失敗：圖片可能因 CORS 限制無法轉檔，請改用上傳或可允許跨域的網址");
@@ -1932,6 +2218,8 @@ function drawBoxOnCanvas(ctx, b, W, H) {
     const ex = b.leader.x / 100 * W;
     const ey = b.leader.y / 100 * H;
     const anchor = lineRectIntersect(cx, cy, ex, ey, x, y, x+w, y+h);
+    ctx.save();
+    ctx.setLineDash([]);
     ctx.strokeStyle = b.leader.color;
     ctx.fillStyle = b.leader.color;
     ctx.lineWidth = b.leader.width;
@@ -1941,7 +2229,6 @@ function drawBoxOnCanvas(ctx, b, W, H) {
     ctx.lineTo(ex, ey);
     ctx.stroke();
     if (b.leader.arrow) {
-      // Draw arrowhead at endpoint
       const angle = Math.atan2(ey - anchor.y, ex - anchor.x);
       const headLen = b.leader.width * 6;
       const headAngle = Math.PI / 6;
@@ -1952,44 +2239,190 @@ function drawBoxOnCanvas(ctx, b, W, H) {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
   }
 
-  // Box bg + border
+  // Box background fill
   ctx.fillStyle = hexToRgba(b.bgColor, b.bgOpacity);
-  ctx.strokeStyle = b.borderColor;
-  ctx.lineWidth = b.borderWidth;
   roundRect(ctx, x, y, w, h, r);
   ctx.fill();
-  if (b.borderWidth > 0) ctx.stroke();
 
-  // Clip to box for text
+  // Border with style support
+  if (b.borderStyle !== "none" && b.borderWidth > 0) {
+    ctx.save();
+    ctx.strokeStyle = b.borderColor;
+    if (b.borderStyle === "dashed") {
+      ctx.setLineDash([b.borderWidth * 4, b.borderWidth * 3]);
+      ctx.lineCap = "butt";
+      ctx.lineWidth = b.borderWidth;
+      roundRect(ctx, x, y, w, h, r);
+      ctx.stroke();
+    } else if (b.borderStyle === "dotted") {
+      ctx.setLineDash([0.1, b.borderWidth * 2]);
+      ctx.lineCap = "round";
+      ctx.lineWidth = b.borderWidth;
+      roundRect(ctx, x, y, w, h, r);
+      ctx.stroke();
+    } else if (b.borderStyle === "double") {
+      // Two parallel strokes, each 1/3 of total width, separated by a 1/3 gap.
+      const third = b.borderWidth / 3;
+      ctx.setLineDash([]);
+      ctx.lineCap = "butt";
+      ctx.lineWidth = third;
+      // Outer stroke: centerline at outer 1/6 of border thickness
+      const outerInset = third / 2;
+      const innerInset = b.borderWidth - third / 2;
+      // Outer rect (stroke center at outer 1/6 from box edge)
+      const orOuter = Math.max(0, r - outerInset);
+      roundRect(ctx, x + outerInset, y + outerInset, w - outerInset * 2, h - outerInset * 2, orOuter);
+      ctx.stroke();
+      // Inner rect (stroke center at outer 5/6 from box edge = 1/6 from inner)
+      const orInner = Math.max(0, r - innerInset);
+      roundRect(ctx, x + innerInset, y + innerInset, w - innerInset * 2, h - innerInset * 2, orInner);
+      ctx.stroke();
+    } else { // solid
+      ctx.setLineDash([]);
+      ctx.lineCap = "butt";
+      ctx.lineWidth = b.borderWidth;
+      roundRect(ctx, x, y, w, h, r);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Clip text to box
   ctx.save();
   roundRect(ctx, x, y, w, h, r);
   ctx.clip();
 
-  // Text
-  ctx.fillStyle = b.textColor;
   const padX = 10, padY = 8;
   let cursorY = y + padY;
   const textWidth = w - padX * 2;
-  const lineHeightTitle = b.fontSize * 1.25;
-  const lineHeightBody = b.fontSize * 1.4;
+  const family = `-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif`;
 
   if (b.title !== null) {
-    ctx.font = `600 ${b.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif`;
+    const tFs = b.titleFontSize ?? b.fontSize;
+    ctx.font = `600 ${tFs}px ${family}`;
+    ctx.fillStyle = b.titleColor || b.textColor;
     ctx.textBaseline = "top";
-    cursorY = wrapText(ctx, b.title, x + padX, cursorY, textWidth, lineHeightTitle);
+    const lh = tFs * 1.25;
+    // Title: not last paragraph (treat all lines same way per align)
+    cursorY = drawAlignedWrappedText(ctx, b.title, x + padX, cursorY, textWidth, lh, b.titleAlign);
     cursorY += 4;
   }
-  ctx.font = `400 ${b.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif`;
+
+  ctx.font = `400 ${b.fontSize}px ${family}`;
+  ctx.fillStyle = b.textColor;
   ctx.textBaseline = "top";
-  // Body supports manual newlines
-  const bodyLines = (b.body || "").split("\n");
-  for (const para of bodyLines) {
-    cursorY = wrapText(ctx, para, x + padX, cursorY, textWidth, lineHeightBody);
+  const lhBody = b.fontSize * 1.4;
+  // Body supports manual newlines; treat each \n-separated paragraph independently
+  const bodyParas = (b.body || "").split("\n");
+  for (let i = 0; i < bodyParas.length; i++) {
+    const isLastPara = i === bodyParas.length - 1;
+    cursorY = drawAlignedWrappedText(ctx, bodyParas[i], x + padX, cursorY, textWidth, lhBody, b.bodyAlign, isLastPara);
   }
 
   ctx.restore();
+}
+
+// Break text into wrapped lines at maxWidth, then render with the requested align.
+// align: "left" | "center" | "right" | "justify" | "distribute"
+// "justify" leaves the LAST line of the LAST paragraph left-aligned (matching CSS).
+// "distribute" distributes characters on every line including the last.
+function drawAlignedWrappedText(ctx, text, x, y, maxWidth, lineHeight, align, isLastPara) {
+  if (!text) return y;
+  const lines = breakLines(ctx, text, maxWidth);
+  let cy = y;
+  for (let i = 0; i < lines.length; i++) {
+    const isLastLine = (i === lines.length - 1) && (isLastPara !== false);
+    let lineAlign = align;
+    if (align === "justify" && isLastLine) lineAlign = "left";
+    drawAlignedLine(ctx, lines[i], x, cy, maxWidth, lineAlign);
+    cy += lineHeight;
+  }
+  return cy;
+}
+
+// Greedy line-breaker with CJK char-level fallback. Returns array of strings.
+function breakLines(ctx, text, maxWidth) {
+  const out = [];
+  let line = "";
+  let lastSpaceIdx = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const test = line + ch;
+    const wd = ctx.measureText(test).width;
+    if (wd > maxWidth && line.length > 0) {
+      let breakAt = lastSpaceIdx >= 0 ? lastSpaceIdx + 1 : line.length;
+      out.push(line.substring(0, breakAt).trimEnd());
+      const remainder = line.substring(breakAt) + ch;
+      line = remainder;
+      lastSpaceIdx = -1;
+      const sp = remainder.lastIndexOf(" ");
+      if (sp >= 0) lastSpaceIdx = sp;
+    } else {
+      line = test;
+      if (ch === " ") lastSpaceIdx = line.length - 1;
+    }
+  }
+  if (line.length > 0) out.push(line);
+  return out;
+}
+
+function drawAlignedLine(ctx, line, x, y, maxWidth, align) {
+  if (align === "left" || !align) {
+    ctx.fillText(line, x, y);
+    return;
+  }
+  const w = ctx.measureText(line).width;
+  if (align === "center") {
+    ctx.fillText(line, x + (maxWidth - w) / 2, y);
+    return;
+  }
+  if (align === "right") {
+    ctx.fillText(line, x + maxWidth - w, y);
+    return;
+  }
+  // justify or distribute: spread extra space among gaps
+  const extra = maxWidth - w;
+  if (extra <= 0 || line.length <= 1) {
+    ctx.fillText(line, x, y);
+    return;
+  }
+  if (align === "justify") {
+    // Word-level justify if there are spaces; otherwise character-level
+    const words = line.split(/(\s+)/); // keep separators
+    const wordCount = words.filter(s => s && !/^\s+$/.test(s)).length;
+    if (wordCount > 1) {
+      // Distribute extra space across whitespace runs
+      const gaps = words.filter(s => /^\s+$/.test(s)).length;
+      const perGap = extra / gaps;
+      let cx = x;
+      for (const tok of words) {
+        if (/^\s+$/.test(tok)) {
+          cx += ctx.measureText(tok).width + perGap;
+        } else if (tok) {
+          ctx.fillText(tok, cx, y);
+          cx += ctx.measureText(tok).width;
+        }
+      }
+      return;
+    }
+    // Single word / CJK with no spaces: fall through to character spread
+  }
+  // distribute (and justify-fallback): per-character spread
+  const chars = [...line]; // handles surrogates correctly
+  if (chars.length <= 1) {
+    ctx.fillText(line, x, y);
+    return;
+  }
+  const totalChar = chars.reduce((s, c) => s + ctx.measureText(c).width, 0);
+  const gap = (maxWidth - totalChar) / (chars.length - 1);
+  let cx = x;
+  for (const ch of chars) {
+    ctx.fillText(ch, cx, y);
+    cx += ctx.measureText(ch).width + gap;
+  }
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -2006,43 +2439,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// Word-wrap text. Handles CJK by char-level wrap when no spaces.
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  if (!text) return y;
-  // Greedy break: try to break on spaces, fall back to per-character
-  let line = "";
-  let cy = y;
-  // For CJK we can break per character; for latin, prefer space-break.
-  // Strategy: iterate char by char, but track last space.
-  let lastSpaceIdx = -1;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const test = line + ch;
-    const w = ctx.measureText(test).width;
-    if (w > maxWidth && line.length > 0) {
-      // Break: if there was a space, break there; else break here
-      let breakAt = lastSpaceIdx >= 0 ? lastSpaceIdx + 1 : line.length;
-      const out = line.substring(0, breakAt).trimEnd();
-      ctx.fillText(out, x, cy);
-      cy += lineHeight;
-      const remainder = line.substring(breakAt) + ch;
-      line = remainder;
-      lastSpaceIdx = -1;
-      // recalc lastSpaceIdx in remainder
-      const sp = remainder.lastIndexOf(" ");
-      if (sp >= 0) lastSpaceIdx = sp;
-    } else {
-      line = test;
-      if (ch === " ") lastSpaceIdx = line.length - 1;
-    }
-  }
-  if (line.length > 0) {
-    ctx.fillText(line, x, cy);
-    cy += lineHeight;
-  }
-  return cy;
-}
-
 /* =================================================================
    IMPORT JSON
    ================================================================= */
@@ -2055,7 +2451,7 @@ el("file-import").addEventListener("change", (e) => {
     try {
       const data = JSON.parse(ev.target.result);
       if (data.image) state.image = data.image;
-      if (Array.isArray(data.boxes)) state.boxes = data.boxes;
+      if (Array.isArray(data.boxes)) state.boxes = data.boxes.map(normalizeBox);
       if (data.nextId) state.nextId = data.nextId;
       state.selectedId = null;
       persist();
