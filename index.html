@@ -189,6 +189,8 @@
     background: #ddd;
     overflow: hidden;
     line-height: 0;
+    /* Allow page-level pinch-zoom but block other gesture defaults so taps register cleanly */
+    touch-action: pinch-zoom;
   }
   .stage img.base {
     display: block;
@@ -236,6 +238,8 @@
     transition: outline-color .12s;
     outline: 2px solid transparent;
     outline-offset: 2px;
+    /* Block browser gesture defaults so the box can be dragged with one finger */
+    touch-action: none;
   }
   .box .box-content {
     padding: 8px 10px;
@@ -259,39 +263,66 @@
   .box.selected { outline-color: var(--accent-blue); }
   .handle {
     position: absolute;
+    /* Larger hit target on touch devices; visual size stays via ::before pseudo */
+    width: 22px; height: 22px;
+    background: transparent;
+    border: none;
+    z-index: 5;
+    touch-action: none;
+  }
+  .handle::before {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
     width: 10px; height: 10px;
     background: var(--paper);
     border: 1.5px solid var(--accent-blue);
     border-radius: 2px;
-    z-index: 5;
+    pointer-events: none;
   }
-  .handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
-  .handle.n  { top: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-  .handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
-  .handle.e  { right: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
-  .handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
-  .handle.s  { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-  .handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
-  .handle.w  { left: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+  .handle.nw { top: -11px; left: -11px; cursor: nwse-resize; }
+  .handle.n  { top: -11px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .handle.ne { top: -11px; right: -11px; cursor: nesw-resize; }
+  .handle.e  { right: -11px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+  .handle.se { bottom: -11px; right: -11px; cursor: nwse-resize; }
+  .handle.s  { bottom: -11px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .handle.sw { bottom: -11px; left: -11px; cursor: nesw-resize; }
+  .handle.w  { left: -11px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
 
   /* leader endpoint marker (rendered on stage when selected & has leader) */
   .leader-endpoint {
     position: absolute;
+    /* Larger hit target for touch; visual size kept by inner pseudo */
+    width: 28px; height: 28px;
+    margin-left: -14px; margin-top: -14px;
+    border-radius: 50%;
+    background: transparent;
+    cursor: move;
+    z-index: 6;
+    touch-action: none;
+  }
+  .leader-endpoint::before {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
     width: 16px; height: 16px;
-    margin-left: -8px; margin-top: -8px;
     border-radius: 50%;
     background: var(--paper);
     border: 2px solid var(--accent-brick);
-    cursor: move;
-    z-index: 6;
     box-shadow: var(--shadow-sm);
+    pointer-events: none;
   }
   .leader-endpoint::after {
     content: "";
     position: absolute;
-    inset: 4px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--accent-brick);
+    pointer-events: none;
   }
 
   /* ============= Right panel ============= */
@@ -1718,15 +1749,20 @@ el("leader-arrow").addEventListener("change", (e) => {
 });
 
 /* =================================================================
-   DRAG / RESIZE / LEADER
+   DRAG / RESIZE / LEADER  (Pointer Events: handles mouse + touch + pen)
    ================================================================= */
 let drag = null;
+// Track the active pointer ID — ignore additional touches during a drag
+let activePointerId = null;
+// For taps on empty area: only deselect if the finger barely moved
+let tapState = null;
 
-stage.addEventListener("mousedown", (e) => {
+stage.addEventListener("pointerdown", (e) => {
   if (!state.image) return;
+  if (drag) return; // ignore multi-touch
   const target = e.target;
 
-  // Click on resize handle
+  // Resize handle
   if (target.classList.contains("handle")) {
     e.stopPropagation(); e.preventDefault();
     const sel = state.boxes.find(b => b.id === state.selectedId);
@@ -1735,10 +1771,12 @@ stage.addEventListener("mousedown", (e) => {
       startX: e.clientX, startY: e.clientY,
       startBox: { ...sel },
     };
+    activePointerId = e.pointerId;
+    try { stage.setPointerCapture(e.pointerId); } catch {}
     return;
   }
 
-  // Click on leader endpoint
+  // Leader endpoint
   if (target.dataset.kind === "leader-endpoint") {
     e.stopPropagation(); e.preventDefault();
     const sel = state.boxes.find(b => b.id === state.selectedId);
@@ -1746,31 +1784,42 @@ stage.addEventListener("mousedown", (e) => {
       kind: "leader", startX: e.clientX, startY: e.clientY,
       startLeader: { ...sel.leader },
     };
+    activePointerId = e.pointerId;
+    try { stage.setPointerCapture(e.pointerId); } catch {}
     return;
   }
 
-  // Click on box
+  // Box body
   const boxEl = target.closest(".box");
   if (boxEl) {
     e.preventDefault();
     const id = +boxEl.dataset.id;
-    if (state.selectedId !== id) {
-      selectBox(id);
-    }
+    if (state.selectedId !== id) selectBox(id);
     const sel = state.boxes.find(b => b.id === id);
     drag = {
       kind: "move", startX: e.clientX, startY: e.clientY,
       startBox: { ...sel },
     };
+    activePointerId = e.pointerId;
+    try { stage.setPointerCapture(e.pointerId); } catch {}
     return;
   }
 
-  // Click on empty area: deselect
-  deselect();
+  // Empty area: defer deselect to pointerup so a pan gesture doesn't deselect
+  tapState = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
 });
 
-window.addEventListener("mousemove", (e) => {
-  if (!drag) return;
+window.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== activePointerId) {
+    // Tap-vs-drag check on empty area: cancel pending deselect once finger moves significantly
+    if (tapState && e.pointerId === tapState.pointerId) {
+      const dx = Math.abs(e.clientX - tapState.x);
+      const dy = Math.abs(e.clientY - tapState.y);
+      if (dx > 6 || dy > 6) tapState = null;
+    }
+    return;
+  }
+  e.preventDefault();
   const r = getStageRect();
   const dxPct = ((e.clientX - drag.startX) / r.width) * 100;
   const dyPct = ((e.clientY - drag.startY) / r.height) * 100;
@@ -1803,14 +1852,26 @@ window.addEventListener("mousemove", (e) => {
     sel.leader.y = clamp(drag.startLeader.y + dyPct, 0, 100);
   }
   renderStage();
-});
+}, { passive: false });
 
-window.addEventListener("mouseup", () => {
-  if (drag) {
+function endDrag(e) {
+  if (drag && (e === undefined || e.pointerId === activePointerId)) {
     drag = null;
+    activePointerId = null;
     persist();
   }
-});
+  // Handle pending tap on empty area
+  if (tapState && (e === undefined || e.pointerId === tapState.pointerId)) {
+    if (e) {
+      const dx = Math.abs(e.clientX - tapState.x);
+      const dy = Math.abs(e.clientY - tapState.y);
+      if (dx <= 6 && dy <= 6) deselect();
+    }
+    tapState = null;
+  }
+}
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
 
 /* =================================================================
    KEYBOARD
